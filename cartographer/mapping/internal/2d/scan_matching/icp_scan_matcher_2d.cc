@@ -17,18 +17,27 @@ namespace cartographer {
 namespace mapping {
 namespace scan_matching {
 
-ceres::Solver::Options CreateCeresSolverOptions() {
-  ceres::Solver::Options options;
-  options.use_nonmonotonic_steps = false;
-  options.max_num_iterations = 100;
-  options.num_threads = 1;
-  options.linear_solver_type = ceres::DENSE_QR;
-  options.minimizer_progress_to_stdout = true;
+proto::ICPScanMatcherOptions2D CreateICPScanMatcherOptions2D(
+    common::LuaParameterDictionary* const parameter_dictionary) {
+  proto::ICPScanMatcherOptions2D options;
+  options.set_nn_huber_loss(parameter_dictionary->GetDouble("nn_huber_loss"));
+  options.set_pp_huber_loss(parameter_dictionary->GetDouble("pp_huber_loss"));
   return options;
 }
 
-ICPScanMatcher2D::ICPScanMatcher2D(const Grid2D& grid)
-    : ceres_solver_options_(CreateCeresSolverOptions()),
+ceres::Solver::Options CreateCeresSolverOptions() {
+  ceres::Solver::Options options;
+  options.use_nonmonotonic_steps = true;
+  options.max_num_iterations = 100;
+  options.num_threads = 1;
+  options.linear_solver_type = ceres::DENSE_QR;
+  return options;
+}
+
+ICPScanMatcher2D::ICPScanMatcher2D(
+    const Grid2D& grid, const proto::ICPScanMatcherOptions2D& options)
+    : options_(options),
+      ceres_solver_options_(CreateCeresSolverOptions()),
       limits_(grid.limits()),
       kdtree_(CreateRealIndexForGrid(grid)) {}
 
@@ -36,26 +45,25 @@ ICPScanMatcher2D::~ICPScanMatcher2D() {}
 
 ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
     const transform::Rigid2d& initial_pose_estimate,
-    const sensor::PointCloud& point_cloud, const double huber_loss) const {
+    const sensor::PointCloud& point_cloud) const {
   double ceres_pose_estimate[3] = {
       initial_pose_estimate.translation().x(),
       initial_pose_estimate.translation().y(),
       initial_pose_estimate.rotation().smallestAngle()};
   ceres::Problem problem;
 
-  double occupied_space_weight = 1.0;
-
   for (size_t i = 0; i < point_cloud.size(); ++i) {
     const Eigen::Vector2d point(point_cloud[i].position.x(),
                                 point_cloud[i].position.y());
 
-    auto cost_fn = new SingleNearestNeighbourCostFunction2D(
-        occupied_space_weight, point, *kdtree_.kdtree);
+    auto cost_fn =
+        new SingleNearestNeighbourCostFunction2D(point, *kdtree_.kdtree);
     auto numeric_diff =
         new ceres::NumericDiffCostFunction<SingleNearestNeighbourCostFunction2D,
                                            ceres::CENTRAL, 2, 3>(cost_fn);
 
-    problem.AddResidualBlock(numeric_diff, new ceres::HuberLoss(huber_loss),
+    problem.AddResidualBlock(numeric_diff,
+                             new ceres::HuberLoss(options_.nn_huber_loss()),
                              ceres_pose_estimate);
   }
 
@@ -96,7 +104,7 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
 
 ICPScanMatcher2D::Result ICPScanMatcher2D::MatchPointPair(
     const transform::Rigid2d& initial_pose_estimate,
-    const sensor::PointCloud& point_cloud, const double huber_loss) const {
+    const sensor::PointCloud& point_cloud) const {
   double ceres_pose_estimate[3] = {
       initial_pose_estimate.translation().x(),
       initial_pose_estimate.translation().y(),
@@ -132,7 +140,8 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::MatchPointPair(
     auto auto_diff =
         new ceres::AutoDiffCostFunction<PointPairCostFunction2D, 2, 3>(cost_fn);
 
-    problem.AddResidualBlock(auto_diff, new ceres::HuberLoss(huber_loss),
+    problem.AddResidualBlock(auto_diff,
+                             new ceres::HuberLoss(options_.pp_huber_loss()),
                              ceres_pose_estimate);
 
     result.pairs.push_back(

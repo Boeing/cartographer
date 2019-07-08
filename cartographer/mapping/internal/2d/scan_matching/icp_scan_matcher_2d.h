@@ -8,6 +8,7 @@
 #include "cartographer/common/lua_parameter_dictionary.h"
 #include "cartographer/mapping/2d/grid_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/nearest_neighbour_cost_function_2d.h"
+#include "cartographer/mapping/proto/scan_matching/icp_scan_matcher_options_2d.pb.h"
 #include "cartographer/sensor/point_cloud.h"
 #include "ceres/ceres.h"
 
@@ -15,9 +16,13 @@ namespace cartographer {
 namespace mapping {
 namespace scan_matching {
 
+proto::ICPScanMatcherOptions2D CreateICPScanMatcherOptions2D(
+    common::LuaParameterDictionary* parameter_dictionary);
+
 class ICPScanMatcher2D {
  public:
-  explicit ICPScanMatcher2D(const Grid2D& grid);
+  explicit ICPScanMatcher2D(const Grid2D& grid,
+                            const proto::ICPScanMatcherOptions2D& options);
   virtual ~ICPScanMatcher2D();
 
   ICPScanMatcher2D(const ICPScanMatcher2D&) = delete;
@@ -31,16 +36,15 @@ class ICPScanMatcher2D {
   };
 
   Result Match(const transform::Rigid2d& initial_pose_estimate,
-               const sensor::PointCloud& point_cloud,
-               const double huber_loss = 0.05) const;
+               const sensor::PointCloud& point_cloud) const;
 
   Result MatchPointPair(const transform::Rigid2d& initial_pose_estimate,
-                        const sensor::PointCloud& point_cloud,
-                        const double huber_loss = 0.01) const;
+                        const sensor::PointCloud& point_cloud) const;
 
   const RealIndex& kdtree() const { return kdtree_; }
 
  private:
+  const proto::ICPScanMatcherOptions2D options_;
   const ceres::Solver::Options ceres_solver_options_;
   const MapLimits limits_;
   const RealIndex kdtree_;

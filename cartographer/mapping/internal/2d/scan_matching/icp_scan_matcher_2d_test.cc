@@ -99,7 +99,11 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
     }
   }
 
-  ICPScanMatcher2D icp_scan_matcher(probability_grid);
+  proto::ICPScanMatcherOptions2D icp_config;
+  icp_config.set_nn_huber_loss(0.05);
+  icp_config.set_pp_huber_loss(0.01);
+
+  ICPScanMatcher2D icp_scan_matcher(probability_grid, icp_config);
 
   transform::Rigid2d pose_estimate({inserted_pose.translation().x() + 0.2,
                                     inserted_pose.translation().y() + 0.2},

@@ -9,11 +9,15 @@
 #include "cartographer/mapping/2d/grid_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/icp_scan_matcher_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/nearest_neighbour_cost_function_2d.h"
+#include "cartographer/mapping/proto/scan_matching/global_icp_scan_matcher_options_2d.pb.h"
 #include "cartographer/sensor/point_cloud.h"
 
 namespace cartographer {
 namespace mapping {
 namespace scan_matching {
+
+proto::GlobalICPScanMatcherOptions2D CreateGlobalICPScanMatcherOptions2D(
+    common::LuaParameterDictionary* parameter_dictionary);
 
 std::vector<Eigen::Array2i> FreeCells(const Grid2D& grid);
 
@@ -37,7 +41,8 @@ class EmptySpaceSampler {
 
 class GlobalICPScanMatcher2D {
  public:
-  explicit GlobalICPScanMatcher2D(const Grid2D& grid);
+  explicit GlobalICPScanMatcher2D(
+      const Grid2D& grid, const proto::GlobalICPScanMatcherOptions2D& options);
   virtual ~GlobalICPScanMatcher2D();
 
   GlobalICPScanMatcher2D(const GlobalICPScanMatcher2D&) = delete;
@@ -121,19 +126,16 @@ class GlobalICPScanMatcher2D {
   };
 
   Result Match(const transform::Rigid2d pose_estimate,
-               const sensor::PointCloud& point_cloud,
-               const size_t num_samples = 1e2);
+               const sensor::PointCloud& point_cloud);
 
-  Result Match(const sensor::PointCloud& point_cloud,
-               const size_t num_samples = 1e3, const size_t num_rotations = 16);
+  Result Match(const sensor::PointCloud& point_cloud);
 
-  std::vector<PoseCluster> DBScanCluster(const std::vector<SamplePose>& poses,
-                                         const size_t min_cluster_size,
-                                         const double min_cluster_distance);
+  std::vector<PoseCluster> DBScanCluster(const std::vector<SamplePose>& poses);
 
   const ICPScanMatcher2D& IcpSolver() const { return icp_solver_; }
 
  private:
+  const proto::GlobalICPScanMatcherOptions2D options_;
   const MapLimits limits_;
   EmptySpaceSampler sampler_;
   const ICPScanMatcher2D icp_solver_;

@@ -106,13 +106,26 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
     }
   }
 
-  GlobalICPScanMatcher2D global_icp_scan_matcher(probability_grid);
+  proto::ICPScanMatcherOptions2D icp_config;
+  icp_config.set_nn_huber_loss(0.5);
+  icp_config.set_pp_huber_loss(0.5);
+
+  proto::GlobalICPScanMatcherOptions2D global_icp_config;
+  global_icp_config.set_num_global_samples(1e3);
+  global_icp_config.set_num_global_rotations(16);
+  global_icp_config.set_proposal_max_score(1.5);
+  global_icp_config.set_min_cluster_size(3);
+  global_icp_config.set_min_cluster_distance(1.0);
+  *global_icp_config.mutable_icp_options() = icp_config;
+
+  GlobalICPScanMatcher2D global_icp_scan_matcher(probability_grid,
+                                                 global_icp_config);
 
   const auto match_result =
       global_icp_scan_matcher.Match(unperturbed_point_cloud);
 
   const auto clusters =
-      global_icp_scan_matcher.DBScanCluster(match_result.poses, 6, 2.0);
+      global_icp_scan_matcher.DBScanCluster(match_result.poses);
 
   double score = 0;
   transform::Rigid2d pose_estimate = transform::Rigid2d::Identity();
@@ -131,6 +144,8 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
               << icp_match.pose_estimate
               << " cost: " << icp_match.summary.final_cost
               << " score: " << icp_score;
+
+    LOG(INFO) << icp_match.summary.FullReport();
 
     if (icp_score > score) {
       score = icp_score;
@@ -241,7 +256,7 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
 
   cairo_surface_write_to_png(surface.get(), "test.png");
 
-  EXPECT_GT(score, 0.99);
+  EXPECT_GT(score, 0.95);
   EXPECT_THAT(inserted_pose,
               transform::IsNearly(pose_estimate.cast<float>(), 0.03f))
       << "Actual: " << transform::ToProto(pose_estimate).DebugString()

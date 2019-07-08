@@ -16,6 +16,30 @@ namespace cartographer {
 namespace mapping {
 namespace scan_matching {
 
+proto::GlobalICPScanMatcherOptions2D CreateGlobalICPScanMatcherOptions2D(
+    common::LuaParameterDictionary* parameter_dictionary) {
+  proto::GlobalICPScanMatcherOptions2D options;
+  options.set_num_global_samples(
+      parameter_dictionary->GetInt("num_global_samples"));
+  options.set_num_global_rotations(
+      parameter_dictionary->GetInt("num_global_rotations"));
+
+  options.set_proposal_max_score(
+      parameter_dictionary->GetDouble("proposal_max_score"));
+
+  options.set_min_cluster_size(
+      parameter_dictionary->GetInt("min_cluster_size"));
+  options.set_min_cluster_distance(
+      parameter_dictionary->GetDouble("min_cluster_distance"));
+
+  options.set_num_local_samples(
+      parameter_dictionary->GetInt("num_local_samples"));
+
+  *options.mutable_icp_options() = scan_matching::CreateICPScanMatcherOptions2D(
+      parameter_dictionary->GetDictionary("icp_options").get());
+  return options;
+}
+
 namespace {
 
 std::vector<GlobalICPScanMatcher2D::RotatedScan> GenerateRotatedScans(
@@ -26,7 +50,7 @@ std::vector<GlobalICPScanMatcher2D::RotatedScan> GenerateRotatedScans(
   double delta_theta = 2.0 * M_PI / samples;
   for (std::size_t scan_index = 0; scan_index < samples; ++scan_index) {
     const auto roation = transform::Rigid3f::Rotation(
-        Eigen::AngleAxisf(theta, Eigen::Vector3f::UnitZ()));
+        Eigen::AngleAxisf(static_cast<float>(theta), Eigen::Vector3f::UnitZ()));
     rotated_scans[scan_index].rotation = theta;
     rotated_scans[scan_index].scan_data =
         sensor::TransformPointCloud(point_cloud, roation);
@@ -52,8 +76,8 @@ std::vector<Eigen::Array2i> FreeCells(const Grid2D& grid) {
 
   for (int y = 0; y < limits.cell_limits().num_y_cells; ++y) {
     for (int x = 0; x < limits.cell_limits().num_x_cells; ++x) {
-      const uint16 cc =
-          grid.correspondence_cost_cells()[grid.ToFlatIndex({x, y})];
+      const uint16 cc = grid.correspondence_cost_cells()[static_cast<size_t>(
+          grid.ToFlatIndex({x, y}))];
       if (cc != kUnknownCorrespondenceValue && cc > occupied_value) {
         result.push_back({x, y});
       }
@@ -63,31 +87,35 @@ std::vector<Eigen::Array2i> FreeCells(const Grid2D& grid) {
   return result;
 }
 
-GlobalICPScanMatcher2D::GlobalICPScanMatcher2D(const Grid2D& grid)
-    : limits_(grid.limits()), sampler_(grid), icp_solver_(grid) {}
+GlobalICPScanMatcher2D::GlobalICPScanMatcher2D(
+    const Grid2D& grid, const proto::GlobalICPScanMatcherOptions2D& options)
+    : options_(options),
+      limits_(grid.limits()),
+      sampler_(grid),
+      icp_solver_(grid, options_.icp_options()) {}
 
 GlobalICPScanMatcher2D::~GlobalICPScanMatcher2D() {}
 
 GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
     const transform::Rigid2d pose_estimate,
-    const sensor::PointCloud& point_cloud, const size_t num_samples) {
+    const sensor::PointCloud& point_cloud) {
   std::mt19937 gen(42);
   std::normal_distribution<double> linear_dist(-0.2, 0.2);
   std::normal_distribution<double> angular_dist(-0.2, 0.2);
 
   const double initial_theta = pose_estimate.rotation().smallestAngle();
-  const auto initial_roation = transform::Rigid3f::Rotation(
-      Eigen::AngleAxisf(initial_theta, Eigen::Vector3f::UnitZ()));
+  const auto initial_roation = transform::Rigid3f::Rotation(Eigen::AngleAxisf(
+      static_cast<float>(initial_theta), Eigen::Vector3f::UnitZ()));
   const auto rotated_scan =
       sensor::TransformPointCloud(point_cloud, initial_roation);
 
   std::priority_queue<SamplePose, std::vector<SamplePose>,
                       SamplePoseMinHeapOperator>
       samples;
-  for (int i = 0; i < num_samples; ++i) {
+  for (int i = 0; i < options_.num_local_samples(); ++i) {
     const double theta = angular_dist(gen);
     const auto roation = transform::Rigid3f::Rotation(
-        Eigen::AngleAxisf(theta, Eigen::Vector3f::UnitZ()));
+        Eigen::AngleAxisf(static_cast<float>(theta), Eigen::Vector3f::UnitZ()));
     const auto scan_data = sensor::TransformPointCloud(rotated_scan, roation);
 
     SamplePose sample_pose;
@@ -105,8 +133,10 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
 
     for (std::size_t p = 0; p < scan_data.size(); ++p) {
       result_set.init(&ret_index, &out_dist_sqr);
-      query_pt[0] = sample_pose.x + scan_data[p].position.x();
-      query_pt[1] = sample_pose.y + scan_data[p].position.y();
+      query_pt[0] =
+          sample_pose.x + static_cast<double>(scan_data[p].position.x());
+      query_pt[1] =
+          sample_pose.y + static_cast<double>(scan_data[p].position.y());
       icp_solver_.kdtree().kdtree->findNeighbors(result_set, &query_pt[0],
                                                  nanoflann::SearchParams(10));
       sample_pose.score += out_dist_sqr;
@@ -130,27 +160,26 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
 }
 
 GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
-    const sensor::PointCloud& point_cloud, const size_t num_samples,
-    const size_t num_rotations) {
-  const std::vector<RotatedScan> rotated_scans =
-      GenerateRotatedScans(point_cloud, num_rotations);
+    const sensor::PointCloud& point_cloud) {
+  const std::vector<RotatedScan> rotated_scans = GenerateRotatedScans(
+      point_cloud, static_cast<size_t>(options_.num_global_rotations()));
 
   std::priority_queue<SamplePose, std::vector<SamplePose>,
                       SamplePoseMinHeapOperator>
       samples;
-  for (int i = 0; i < num_samples; ++i) {
+  for (int i = 0; i < options_.num_global_samples(); ++i) {
     const auto mp = sampler_.sample();
     const auto real_p = limits_.GetCellCenter(mp);
 
-    for (int r = 0; r < num_rotations; ++r) {
+    for (size_t r = 0; r < rotated_scans.size(); ++r) {
       const RotatedScan& scan = rotated_scans[r];
 
       SamplePose sample_pose;
       sample_pose.rotation = scan.rotation;
       sample_pose.score = 0.0;
 
-      sample_pose.x = real_p.x();
-      sample_pose.y = real_p.y();
+      sample_pose.x = static_cast<double>(real_p.x());
+      sample_pose.y = static_cast<double>(real_p.y());
 
       const size_t num_results = 1;
       size_t ret_index;
@@ -160,8 +189,10 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
 
       for (std::size_t p = 0; p < scan.scan_data.size(); ++p) {
         result_set.init(&ret_index, &out_dist_sqr);
-        query_pt[0] = real_p.x() + scan.scan_data[p].position.x();
-        query_pt[1] = real_p.y() + scan.scan_data[p].position.y();
+        query_pt[0] = static_cast<double>(real_p.x()) +
+                      static_cast<double>(scan.scan_data[p].position.x());
+        query_pt[1] = static_cast<double>(real_p.y()) +
+                      static_cast<double>(scan.scan_data[p].position.y());
         icp_solver_.kdtree().kdtree->findNeighbors(result_set, &query_pt[0],
                                                    nanoflann::SearchParams(10));
         sample_pose.score += out_dist_sqr;
@@ -176,7 +207,7 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
 
   int i = 0;
   while (!samples.empty()) {
-    if (samples.top().score > 1.5) break;
+    if (samples.top().score > options_.proposal_max_score()) break;
     result.poses.push_back(samples.top());
     samples.pop();
     ++i;
@@ -186,9 +217,7 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
 }
 
 std::vector<GlobalICPScanMatcher2D::PoseCluster>
-GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses,
-                                      const size_t min_cluster_size,
-                                      const double min_cluster_distance) {
+GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
   int cluster_counter = 0;
   static constexpr int UNDEFINED = -1;
   static constexpr int NOISE = -2;
@@ -211,10 +240,10 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses,
     double query_pt[3] = {pose.x, pose.y, pose.rotation};
     std::vector<std::pair<size_t, double>> ret_matches;
     const size_t num_matches =
-        kdtree.radiusSearch(&query_pt[0], min_cluster_distance, ret_matches,
-                            nanoflann::SearchParams());
+        kdtree.radiusSearch(&query_pt[0], options_.min_cluster_distance(),
+                            ret_matches, nanoflann::SearchParams());
 
-    if (num_matches < min_cluster_size) {
+    if (num_matches < static_cast<size_t>(options_.min_cluster_size())) {
       labels[i] = NOISE;
       continue;
     }
@@ -244,11 +273,11 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses,
                                   kdtree.dataset.kdtree_get_pt(match.first, 1),
                                   kdtree.dataset.kdtree_get_pt(match.first, 2)};
         std::vector<std::pair<size_t, double>> sub_ret_matches;
-        const size_t sub_num_matches =
-            kdtree.radiusSearch(&sub_query_pt[0], min_cluster_distance,
-                                sub_ret_matches, nanoflann::SearchParams());
+        const size_t sub_num_matches = kdtree.radiusSearch(
+            &sub_query_pt[0], options_.min_cluster_distance(), sub_ret_matches,
+            nanoflann::SearchParams());
 
-        if (sub_num_matches > min_cluster_distance) {
+        if (sub_num_matches > options_.min_cluster_distance()) {
           for (const auto& match : sub_ret_matches)
             ret_matches.push_back(match);
         }

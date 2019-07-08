@@ -111,10 +111,9 @@ class NearestNeighbourCostFunction2D {
 
 class SingleNearestNeighbourCostFunction2D {
  public:
-  SingleNearestNeighbourCostFunction2D(const double scaling_factor,
-                                       const Eigen::Vector2d& src,
+  SingleNearestNeighbourCostFunction2D(const Eigen::Vector2d& src,
                                        const RealKDTree& kdtree)
-      : scaling_factor_(scaling_factor), src_(src), kdtree_(kdtree) {}
+      : src_(src), kdtree_(kdtree) {}
 
   template <typename T>
   bool operator()(const T* const pose, T* residual) const {
@@ -141,12 +140,8 @@ class SingleNearestNeighbourCostFunction2D {
     kdtree_.findNeighbors(result_set, &query_pt[0],
                           nanoflann::SearchParams(10));
 
-    residual[0] =
-        world[0] - T(kdtree_.dataset.cells[ret_index].x);  // scaling_factor_ *
-    residual[1] =
-        world[1] - T(kdtree_.dataset.cells[ret_index].y);  // scaling_factor_ *
-
-    //    LOG(INFO) << "residual: " << residual[0] << " " << residual[1];
+    residual[0] = world[0] - T(kdtree_.dataset.cells[ret_index].x);
+    residual[1] = world[1] - T(kdtree_.dataset.cells[ret_index].y);
 
     return true;
   }
@@ -157,7 +152,6 @@ class SingleNearestNeighbourCostFunction2D {
   SingleNearestNeighbourCostFunction2D& operator=(
       const SingleNearestNeighbourCostFunction2D&) = delete;
 
-  const double scaling_factor_;
   const Eigen::Vector2d src_;
   const RealKDTree& kdtree_;
 };
