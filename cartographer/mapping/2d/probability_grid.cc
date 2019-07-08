@@ -42,7 +42,7 @@ void ProbabilityGrid::SetProbability(const Eigen::Array2i& cell_index,
                                      const float probability) {
   uint16& cell =
       (*mutable_correspondence_cost_cells())[ToFlatIndex(cell_index)];
-  CHECK_EQ(cell, kUnknownProbabilityValue);
+  //  CHECK_EQ(cell, kUnknownProbabilityValue);
   cell =
       CorrespondenceCostToValue(ProbabilityToCorrespondenceCost(probability));
   mutable_known_cells_box()->extend(cell_index.matrix());
@@ -146,6 +146,31 @@ bool ProbabilityGrid::DrawToSubmapTexture(
       transform::Rigid3d::Translation(Eigen::Vector3d(max_x, max_y, 0.)));
 
   return true;
+}
+
+cartographer::io::UniqueCairoSurfacePtr ProbabilityGrid::DrawSurface() const {
+  const CellLimits cell_limits = limits().cell_limits();
+  auto surface = cairo_image_surface_create(cairo_format_t::CAIRO_FORMAT_ARGB32,
+                                            cell_limits.num_x_cells,
+                                            cell_limits.num_y_cells);
+
+  uint32_t* pixel_data =
+      reinterpret_cast<uint32_t*>(cairo_image_surface_get_data(surface));
+  for (const Eigen::Array2i& xy_index : XYIndexRangeIterator(cell_limits)) {
+    const int i = ToFlatIndex(xy_index);
+
+    if (!IsKnown(xy_index)) {
+      pixel_data[i] = (255 << 24) | (0 << 16) | (0 << 8) | (0);
+    } else {
+      const float prob = GetProbability(xy_index);
+      const uint8_t o_intensity = 255 * std::max(0.f, prob - 0.5f) / 0.5f;
+      const uint8_t m_intensity = 255 * (0.5f - std::min(0.5f, prob)) / 0.5f;
+      pixel_data[i] =
+          (255 << 24) | (o_intensity << 16) | (m_intensity << 8) | (0);
+    }
+  }
+
+  return cartographer::io::MakeUniqueCairoSurfacePtr(surface);
 }
 
 }  // namespace mapping
