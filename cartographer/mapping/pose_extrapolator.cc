@@ -20,6 +20,7 @@
 
 #include "absl/memory/memory.h"
 #include "cartographer/transform/transform.h"
+#include "cartographer/transform/timestamped_transform.h"
 #include "glog/logging.h"
 
 namespace cartographer {
@@ -135,13 +136,65 @@ transform::Rigid3d PoseExtrapolator::ExtrapolatePose(const common::Time time) {
   const TimedPose& newest_timed_pose = timed_pose_queue_.back();
   CHECK_GE(time, newest_timed_pose.time);
   if (cached_extrapolated_pose_.time != time) {
-    const Eigen::Vector3d translation =
-        ExtrapolateTranslation(time) + newest_timed_pose.pose.translation();
-    const Eigen::Quaterniond rotation =
-        newest_timed_pose.pose.rotation() *
-        ExtrapolateRotation(time, extrapolation_imu_tracker_.get());
-    cached_extrapolated_pose_ =
-        TimedPose{time, transform::Rigid3d{translation, rotation}};
+    if (odometry_data_.empty()) {
+      cached_extrapolated_pose_ = newest_timed_pose;
+      return cached_extrapolated_pose_.pose;
+    }
+
+    // new algorithm
+
+    // estimate odometry at the last known pose
+    transform::Rigid3d reference_odom;
+    {
+      auto it = odometry_data_.begin();
+      while (it != odometry_data_.end() && it->time < newest_timed_pose.time) {
+        it++;
+      }
+
+      if (it == odometry_data_.begin()) {
+        reference_odom = it->pose;
+      } else if (it == odometry_data_.end()) {
+        auto prev_it = it - 1;
+        reference_odom = prev_it->pose;
+      } else {
+        auto prev_it = it - 1;
+        reference_odom =
+            Interpolate(
+                transform::TimestampedTransform{prev_it->time, prev_it->pose},
+                transform::TimestampedTransform{it->time, it->pose},
+                newest_timed_pose.time)
+                .transform;
+      }
+    }
+
+    // estimate odometry at the queried time
+    transform::Rigid3d current_odom;
+    {
+      auto it = odometry_data_.begin();
+      while (it != odometry_data_.end() && it->time < time) {
+        it++;
+      }
+
+      if (it == odometry_data_.begin()) {
+        current_odom = it->pose;
+      } else if (it == odometry_data_.end()) {
+        auto prev_it = it - 1;
+        current_odom = prev_it->pose;
+      } else {
+        auto prev_it = it - 1;
+        current_odom =
+            Interpolate(
+                transform::TimestampedTransform{prev_it->time, prev_it->pose},
+                transform::TimestampedTransform{it->time, it->pose}, time)
+                .transform;
+      }
+    }
+
+    // calculate the odom diff
+    transform::Rigid3d odom_diff = reference_odom.inverse() * current_odom;
+    transform::Rigid3d extrapolated = newest_timed_pose.pose * odom_diff;
+
+    cached_extrapolated_pose_ = TimedPose{time, extrapolated};
   }
   return cached_extrapolated_pose_.pose;
 }
