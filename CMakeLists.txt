@@ -62,15 +62,6 @@ else()
   find_library(CAIRO_LIBRARIES cairo)
 endif()
 
-# Only build the documentation if we can find Sphinx.
-find_package(Sphinx)
-if(SPHINX_FOUND)
-  add_subdirectory("docs")
-endif()
-
-# Install catkin package.xml
-install(FILES package.xml DESTINATION share/cartographer)
-
 set(CARTOGRAPHER_CONFIGURATION_FILES_DIRECTORY ${CMAKE_INSTALL_PREFIX}/share/cartographer/configuration_files
   CACHE PATH ".lua configuration files directory")
 
