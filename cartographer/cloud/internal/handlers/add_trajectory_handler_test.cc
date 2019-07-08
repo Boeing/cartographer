@@ -28,13 +28,13 @@ namespace cloud {
 namespace handlers {
 namespace {
 
-using ::testing::_;
 using ::testing::ContainerEq;
 using ::testing::Eq;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::Test;
 using ::testing::Truly;
+using ::testing::_;
 
 const std::string kMessage = R"(
     client_id: "CLIENT_ID"
@@ -85,9 +85,9 @@ class AddTrajectoryHandlerTest
 
  protected:
   std::set<mapping::TrajectoryBuilderInterface::SensorId> ParseSensorIds(
-      const proto::AddTrajectoryRequest &request) {
+      const proto::AddTrajectoryRequest& request) {
     std::set<mapping::TrajectoryBuilderInterface::SensorId> expected_sensor_ids;
-    for (const auto &sensor_id : request.expected_sensor_ids()) {
+    for (const auto& sensor_id : request.expected_sensor_ids()) {
       expected_sensor_ids.insert(cloud::FromProto(sensor_id));
     }
     return expected_sensor_ids;

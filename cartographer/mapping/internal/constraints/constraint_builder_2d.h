@@ -34,6 +34,7 @@
 #include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/ceres_scan_matcher_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/fast_correlative_scan_matcher_2d.h"
+#include "cartographer/mapping/internal/2d/scan_matching/global_icp_scan_matcher_2d.h"
 #include "cartographer/mapping/pose_graph_interface.h"
 #include "cartographer/mapping/proto/pose_graph/constraint_builder_options.pb.h"
 #include "cartographer/metrics/family_factory.h"
@@ -110,6 +111,8 @@ class ConstraintBuilder2D {
     const Grid2D* grid = nullptr;
     std::unique_ptr<scan_matching::FastCorrelativeScanMatcher2D>
         fast_correlative_scan_matcher;
+    std::unique_ptr<scan_matching::GlobalICPScanMatcher2D>
+        global_icp_scan_matcher;
     std::weak_ptr<common::Task> creation_task_handle;
   };
 

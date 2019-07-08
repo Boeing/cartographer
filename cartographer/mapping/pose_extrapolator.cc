@@ -19,8 +19,8 @@
 #include <algorithm>
 
 #include "absl/memory/memory.h"
-#include "cartographer/transform/transform.h"
 #include "cartographer/transform/timestamped_transform.h"
+#include "cartographer/transform/transform.h"
 #include "glog/logging.h"
 
 namespace cartographer {

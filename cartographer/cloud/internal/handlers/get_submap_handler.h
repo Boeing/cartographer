@@ -31,7 +31,7 @@ DEFINE_HANDLER_SIGNATURE(
 
 class GetSubmapHandler : public async_grpc::RpcHandler<GetSubmapSignature> {
  public:
-  void OnRequest(const proto::GetSubmapRequest &request) override;
+  void OnRequest(const proto::GetSubmapRequest& request) override;
 };
 
 }  // namespace handlers

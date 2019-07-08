@@ -26,7 +26,7 @@ namespace cartographer {
 namespace cloud {
 namespace handlers {
 
-void GetSubmapHandler::OnRequest(const proto::GetSubmapRequest &request) {
+void GetSubmapHandler::OnRequest(const proto::GetSubmapRequest& request) {
   auto response = absl::make_unique<proto::GetSubmapResponse>();
   response->set_error_msg(
       GetContext<MapBuilderContextInterface>()->map_builder().SubmapToProto(

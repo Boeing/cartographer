@@ -33,7 +33,7 @@ DEFINE_HANDLER_SIGNATURE(
 class SetLandmarkPoseHandler
     : public async_grpc::RpcHandler<SetLandmarkPoseSignature> {
  public:
-  void OnRequest(const proto::SetLandmarkPoseRequest &request) override;
+  void OnRequest(const proto::SetLandmarkPoseRequest& request) override;
 };
 
 }  // namespace handlers

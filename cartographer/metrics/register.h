@@ -22,7 +22,7 @@
 namespace cartographer {
 namespace metrics {
 
-void RegisterAllMetrics(FamilyFactory *registry);
+void RegisterAllMetrics(FamilyFactory* registry);
 
 }  // namespace metrics
 }  // namespace cartographer

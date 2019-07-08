@@ -25,31 +25,31 @@ namespace cartographer {
 namespace cloud {
 namespace testing {
 
-using DataPredicateType = std::function<bool(const sensor::Data &)>;
+using DataPredicateType = std::function<bool(const sensor::Data&)>;
 using ProtoPredicateType =
-    std::function<bool(const google::protobuf::Message &)>;
+    std::function<bool(const google::protobuf::Message&)>;
 
 template <typename T>
-DataPredicateType BuildDataPredicateEquals(const T &proto);
+DataPredicateType BuildDataPredicateEquals(const T& proto);
 
 template <>
 DataPredicateType BuildDataPredicateEquals<proto::AddImuDataRequest>(
-    const proto::AddImuDataRequest &proto);
+    const proto::AddImuDataRequest& proto);
 template <>
 DataPredicateType BuildDataPredicateEquals<proto::AddFixedFramePoseDataRequest>(
-    const proto::AddFixedFramePoseDataRequest &proto);
+    const proto::AddFixedFramePoseDataRequest& proto);
 template <>
 DataPredicateType BuildDataPredicateEquals<proto::AddOdometryDataRequest>(
-    const proto::AddOdometryDataRequest &proto);
+    const proto::AddOdometryDataRequest& proto);
 template <>
 DataPredicateType BuildDataPredicateEquals<proto::AddLandmarkDataRequest>(
-    const proto::AddLandmarkDataRequest &proto);
+    const proto::AddLandmarkDataRequest& proto);
 template <>
 DataPredicateType BuildDataPredicateEquals<proto::AddRangefinderDataRequest>(
-    const proto::AddRangefinderDataRequest &proto);
+    const proto::AddRangefinderDataRequest& proto);
 
 ProtoPredicateType BuildProtoPredicateEquals(
-    const google::protobuf::Message *proto);
+    const google::protobuf::Message* proto);
 
 }  // namespace testing
 }  // namespace cloud

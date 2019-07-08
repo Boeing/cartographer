@@ -164,14 +164,31 @@ ConstraintBuilder2D::DispatchScanMatcherConstruction(const SubmapId& submap_id,
   }
   auto& submap_scan_matcher = submap_scan_matchers_[submap_id];
   submap_scan_matcher.grid = grid;
-  auto& scan_matcher_options = options_.fast_correlative_scan_matcher_options();
-  auto scan_matcher_task = absl::make_unique<common::Task>();
-  scan_matcher_task->SetWorkItem(
-      [&submap_scan_matcher, &scan_matcher_options]() {
-        submap_scan_matcher.fast_correlative_scan_matcher =
-            absl::make_unique<scan_matching::FastCorrelativeScanMatcher2D>(
-                *submap_scan_matcher.grid, scan_matcher_options);
-      });
+
+  std::unique_ptr<common::Task> scan_matcher_task;
+
+  if (options_.scan_match_2d_type() ==
+      proto::ConstraintBuilderOptions_ScanMatch2dType::
+          ConstraintBuilderOptions_ScanMatch2dType_FAST_CORRELATIVE) {
+    auto& scan_matcher_options =
+        options_.fast_correlative_scan_matcher_options();
+    scan_matcher_task = absl::make_unique<common::Task>();
+    scan_matcher_task->SetWorkItem(
+        [&submap_scan_matcher, &scan_matcher_options]() {
+          submap_scan_matcher.fast_correlative_scan_matcher =
+              absl::make_unique<scan_matching::FastCorrelativeScanMatcher2D>(
+                  *submap_scan_matcher.grid, scan_matcher_options);
+        });
+  } else {
+    auto& scan_matcher_options = options_.global_icp_scan_matcher_options_2d();
+    scan_matcher_task = absl::make_unique<common::Task>();
+    scan_matcher_task->SetWorkItem(
+        [&submap_scan_matcher, &scan_matcher_options]() {
+          submap_scan_matcher.global_icp_scan_matcher =
+              absl::make_unique<scan_matching::GlobalICPScanMatcher2D>(
+                  *submap_scan_matcher.grid, scan_matcher_options);
+        });
+  }
   submap_scan_matcher.creation_task_handle =
       thread_pool_->Schedule(std::move(scan_matcher_task));
   return &submap_scan_matchers_.at(submap_id);
@@ -200,32 +217,147 @@ void ConstraintBuilder2D::ComputeConstraint(
   // 1. Fast estimate using the fast correlative scan matcher.
   // 2. Prune if the score is too low.
   // 3. Refine.
-  if (match_full_submap) {
-    kGlobalConstraintsSearchedMetric->Increment();
-    if (submap_scan_matcher.fast_correlative_scan_matcher->MatchFullSubmap(
-            constant_data->filtered_gravity_aligned_point_cloud,
-            options_.global_localization_min_score(), &score, &pose_estimate)) {
-      CHECK_GT(score, options_.global_localization_min_score());
-      CHECK_GE(node_id.trajectory_id, 0);
-      CHECK_GE(submap_id.trajectory_id, 0);
-      kGlobalConstraintsFoundMetric->Increment();
-      kGlobalConstraintScoresMetric->Observe(score);
+
+  if (options_.scan_match_2d_type() ==
+      proto::ConstraintBuilderOptions_ScanMatch2dType::
+          ConstraintBuilderOptions_ScanMatch2dType_FAST_CORRELATIVE) {
+    if (match_full_submap) {
+      kGlobalConstraintsSearchedMetric->Increment();
+      if (submap_scan_matcher.fast_correlative_scan_matcher->MatchFullSubmap(
+              constant_data->filtered_gravity_aligned_point_cloud,
+              options_.global_localization_min_score(), &score,
+              &pose_estimate)) {
+        CHECK_GT(score, options_.global_localization_min_score());
+        CHECK_GE(node_id.trajectory_id, 0);
+        CHECK_GE(submap_id.trajectory_id, 0);
+        kGlobalConstraintsFoundMetric->Increment();
+        kGlobalConstraintScoresMetric->Observe(score);
+      } else {
+        return;
+      }
     } else {
-      return;
+      kConstraintsSearchedMetric->Increment();
+      if (submap_scan_matcher.fast_correlative_scan_matcher->Match(
+              initial_pose, constant_data->filtered_gravity_aligned_point_cloud,
+              options_.min_score(), &score, &pose_estimate)) {
+        // We've reported a successful local match.
+        CHECK_GT(score, options_.min_score());
+        kConstraintsFoundMetric->Increment();
+        kConstraintScoresMetric->Observe(score);
+      } else {
+        return;
+      }
     }
   } else {
-    kConstraintsSearchedMetric->Increment();
-    if (submap_scan_matcher.fast_correlative_scan_matcher->Match(
-            initial_pose, constant_data->filtered_gravity_aligned_point_cloud,
-            options_.min_score(), &score, &pose_estimate)) {
-      // We've reported a successful local match.
-      CHECK_GT(score, options_.min_score());
-      kConstraintsFoundMetric->Increment();
-      kConstraintScoresMetric->Observe(score);
+    const auto t0 = std::chrono::steady_clock::now();
+    auto _t0 = std::chrono::steady_clock::now();
+
+    cartographer::mapping::scan_matching::GlobalICPScanMatcher2D::Result
+        match_result;
+    if (match_full_submap) {
+      kGlobalConstraintsSearchedMetric->Increment();
+      match_result = submap_scan_matcher.global_icp_scan_matcher->Match(
+          constant_data->filtered_gravity_aligned_point_cloud);
     } else {
+      kConstraintsSearchedMetric->Increment();
+      match_result = submap_scan_matcher.global_icp_scan_matcher->Match(
+          initial_pose, constant_data->filtered_gravity_aligned_point_cloud);
+    }
+
+    LOG(INFO) << "Found " << match_result.poses.size() << " good proposals"
+              << " (took: "
+              << std::chrono::duration_cast<std::chrono::duration<double>>(
+                     std::chrono::steady_clock::now() - _t0)
+                     .count()
+              << ")";
+
+    const auto clusters =
+        submap_scan_matcher.global_icp_scan_matcher->DBScanCluster(
+            match_result.poses);
+
+    LOG(INFO) << "Found " << clusters.size() << " clusters";
+
+    transform::Rigid2d icp_pose_proposal = transform::Rigid2d::Identity();
+    cartographer::mapping::scan_matching::ICPScanMatcher2D::Result icp_result;
+
+    for (size_t i = 0; i < clusters.size(); ++i) {
+      const transform::Rigid2d cluster_estimate({clusters[i].x, clusters[i].y},
+                                                clusters[i].rotation);
+
+      _t0 = std::chrono::steady_clock::now();
+
+      auto icp_match =
+          submap_scan_matcher.global_icp_scan_matcher->IcpSolver().Match(
+              cluster_estimate,
+              constant_data->filtered_gravity_aligned_point_cloud);
+
+      LOG(INFO) << "ICP: " << cluster_estimate << " -> "
+                << icp_match.pose_estimate
+                << " cost: " << icp_match.summary.initial_cost << " -> "
+                << icp_match.summary.final_cost;
+
+      for (int ii = 0; ii < 20; ++ii) {
+        if (icp_match.summary.final_cost < 0.01) break;
+        icp_match =
+            submap_scan_matcher.global_icp_scan_matcher->IcpSolver()
+                .MatchPointPair(
+                    icp_match.pose_estimate,
+                    constant_data->filtered_gravity_aligned_point_cloud);
+
+        LOG(INFO) << "ICP: " << cluster_estimate << " -> "
+                  << icp_match.pose_estimate
+                  << " cost: " << icp_match.summary.initial_cost << " -> "
+                  << icp_match.summary.final_cost;
+      }
+
+      const double icp_score =
+          std::max(0.01, std::min(1., 1. - icp_match.summary.final_cost));
+
+      LOG(INFO) << "score: " << icp_score << " (took: "
+                << std::chrono::duration_cast<std::chrono::duration<double>>(
+                       std::chrono::steady_clock::now() - _t0)
+                       .count()
+                << ")";
+
+      if (icp_score > score) {
+        score = icp_score;
+        pose_estimate = icp_match.pose_estimate;
+        icp_pose_proposal = cluster_estimate;
+        icp_result = icp_match;
+      }
+    }
+
+    if ((match_full_submap &&
+         score > options_.global_localization_min_score()) ||
+        (!match_full_submap && score > options_.min_score())) {
+      CHECK_GE(node_id.trajectory_id, 0);
+      CHECK_GE(submap_id.trajectory_id, 0);
+
+      if (match_full_submap) {
+        kGlobalConstraintsFoundMetric->Increment();
+        kGlobalConstraintScoresMetric->Observe(score);
+      } else {
+        kConstraintsFoundMetric->Increment();
+        kConstraintScoresMetric->Observe(score);
+      }
+
+      LOG(INFO) << "SUCCESS matching node_id: " << node_id
+                << " submap_id: " << submap_id << " score: " << score
+                << " took: "
+                << std::chrono::duration_cast<std::chrono::duration<double>>(
+                       std::chrono::steady_clock::now() - t0)
+                       .count();
+    } else {
+      LOG(INFO) << "FAILED matching node_id: " << node_id
+                << " submap_id: " << submap_id << " score: " << score
+                << " took: "
+                << std::chrono::duration_cast<std::chrono::duration<double>>(
+                       std::chrono::steady_clock::now() - t0)
+                       .count();
       return;
     }
   }
+
   {
     absl::MutexLock locker(&mutex_);
     score_histogram_.Add(score);

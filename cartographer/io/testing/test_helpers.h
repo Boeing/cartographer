@@ -28,15 +28,15 @@ namespace io {
 namespace testing {
 
 template <typename T>
-T ProtoFromStringOrDie(const std::string &proto_string) {
+T ProtoFromStringOrDie(const std::string& proto_string) {
   T msg;
   CHECK(google::protobuf::TextFormat::ParseFromString(proto_string, &msg));
   return msg;
 }
 
 std::unique_ptr<InMemoryProtoStreamReader> ProtoReaderFromStrings(
-    const std::string &header_textpb,
-    const std::initializer_list<std::string> &data_textpbs);
+    const std::string& header_textpb,
+    const std::initializer_list<std::string>& data_textpbs);
 
 }  // namespace testing
 }  // namespace io

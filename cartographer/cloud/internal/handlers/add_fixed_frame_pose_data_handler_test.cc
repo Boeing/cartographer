@@ -26,10 +26,10 @@ namespace cloud {
 namespace handlers {
 namespace {
 
-using ::testing::_;
 using ::testing::Eq;
 using ::testing::Pointee;
 using ::testing::Truly;
+using ::testing::_;
 
 const std::string kMessage = R"(
   sensor_metadata {

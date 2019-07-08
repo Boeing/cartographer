@@ -35,7 +35,7 @@ DEFINE_HANDLER_SIGNATURE(
 class ReceiveGlobalSlamOptimizationsHandler
     : public async_grpc::RpcHandler<ReceiveGlobalSlamOptimizationsSignature> {
  public:
-  void OnRequest(const google::protobuf::Empty &request) override;
+  void OnRequest(const google::protobuf::Empty& request) override;
   void OnFinish() override;
 
  private:

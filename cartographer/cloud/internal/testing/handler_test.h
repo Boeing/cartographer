@@ -69,7 +69,7 @@ class HandlerTest : public Test {
   std::unique_ptr<
       async_grpc::testing::RpcHandlerTestServer<HandlerConcept, HandlerType>>
       test_server_;
-  MockMapBuilderContext *mock_map_builder_context_;
+  MockMapBuilderContext* mock_map_builder_context_;
   std::unique_ptr<MockLocalTrajectoryUploader> mock_local_trajectory_uploader_;
   std::unique_ptr<mapping::testing::MockMapBuilder> mock_map_builder_;
   std::unique_ptr<mapping::testing::MockPoseGraph> mock_pose_graph_;
