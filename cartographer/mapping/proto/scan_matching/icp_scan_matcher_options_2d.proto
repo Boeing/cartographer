@@ -16,14 +16,7 @@ syntax = "proto3";
 
 package cartographer.mapping.scan_matching.proto;
 
-message GlobalICPScanMatcherOptions2D {
-  int32 num_global_samples = 1;
-  int32 num_global_rotations = 2;
-
-  double proposal_max_score = 3;
-
-  int32 min_cluster_size = 4;
-  double min_cluster_distance = 5;
-
-  int32 num_local_samples = 6;
+message ICPScanMatcherOptions2D {
+  double nn_huber_loss = 1;
+  double pp_huber_loss = 2;
 }

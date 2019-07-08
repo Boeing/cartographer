@@ -20,6 +20,7 @@ import "cartographer/mapping/proto/scan_matching/ceres_scan_matcher_options_2d.p
 import "cartographer/mapping/proto/scan_matching/ceres_scan_matcher_options_3d.proto";
 import "cartographer/mapping/proto/scan_matching/fast_correlative_scan_matcher_options_2d.proto";
 import "cartographer/mapping/proto/scan_matching/fast_correlative_scan_matcher_options_3d.proto";
+import "cartographer/mapping/proto/scan_matching/global_icp_scan_matcher_options_2d.proto";
 
 message ConstraintBuilderOptions {
   // A constraint will be added if the proportion of added constraints to
@@ -56,4 +57,13 @@ message ConstraintBuilderOptions {
       fast_correlative_scan_matcher_options_3d = 10;
   mapping.scan_matching.proto.CeresScanMatcherOptions3D
       ceres_scan_matcher_options_3d = 12;
+
+  mapping.scan_matching.proto.GlobalICPScanMatcherOptions2D global_icp_scan_matcher_options_2d = 15;
+
+  enum ScanMatch2dType {
+    FAST_CORRELATIVE = 0;
+    ICP = 1;
+  }
+
+  ScanMatch2dType scan_match_2d_type = 16;
 }
