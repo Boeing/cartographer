@@ -27,16 +27,23 @@ proto::OptimizationProblemOptions CreateOptimizationProblemOptions(
   proto::OptimizationProblemOptions options;
   options.set_huber_scale(parameter_dictionary->GetDouble("huber_scale"));
 
-  options.set_odometry_translation_weight(parameter_dictionary->GetDouble("odometry_translation_weight"));
-  options.set_odometry_rotation_weight(parameter_dictionary->GetDouble("odometry_rotation_weight"));
+  options.set_odometry_translation_weight(
+      parameter_dictionary->GetDouble("odometry_translation_weight"));
+  options.set_odometry_rotation_weight(
+      parameter_dictionary->GetDouble("odometry_rotation_weight"));
 
-  options.set_local_slam_pose_translation_weight(parameter_dictionary->GetDouble("local_slam_pose_translation_weight"));
-  options.set_local_slam_pose_rotation_weight(parameter_dictionary->GetDouble("local_slam_pose_rotation_weight"));
+  options.set_local_slam_pose_translation_weight(
+      parameter_dictionary->GetDouble("local_slam_pose_translation_weight"));
+  options.set_local_slam_pose_rotation_weight(
+      parameter_dictionary->GetDouble("local_slam_pose_rotation_weight"));
 
-  options.set_fixed_frame_pose_translation_weight(parameter_dictionary->GetDouble("fixed_frame_pose_translation_weight"));
-  options.set_fixed_frame_pose_rotation_weight(parameter_dictionary->GetDouble("fixed_frame_pose_rotation_weight"));
+  options.set_fixed_frame_pose_translation_weight(
+      parameter_dictionary->GetDouble("fixed_frame_pose_translation_weight"));
+  options.set_fixed_frame_pose_rotation_weight(
+      parameter_dictionary->GetDouble("fixed_frame_pose_rotation_weight"));
 
-  options.set_log_solver_summary(parameter_dictionary->GetBool("log_solver_summary"));
+  options.set_log_solver_summary(
+      parameter_dictionary->GetBool("log_solver_summary"));
 
   *options.mutable_ceres_solver_options() =
       common::CreateCeresSolverOptionsProto(

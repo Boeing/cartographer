@@ -83,10 +83,15 @@ void RegisterBuiltInPointsProcessors(
   RegisterPlainPointsProcessor<MinMaxRangeFiteringPointsProcessor>(builder);
   RegisterPlainPointsProcessor<ColoringPointsProcessor>(builder);
   RegisterPlainPointsProcessor<IntensityToColorPointsProcessor>(builder);
-  RegisterFileWritingPointsProcessor<PcdWritingPointsProcessor>(file_writer_factory, builder);
-  RegisterFileWritingPointsProcessor<PlyWritingPointsProcessor>(file_writer_factory, builder);
-  RegisterFileWritingPointsProcessor<XyzWriterPointsProcessor>(file_writer_factory, builder);
-  RegisterFileWritingPointsProcessorWithTrajectories<ProbabilityGridPointsProcessor>(trajectories, file_writer_factory,builder);
+  RegisterFileWritingPointsProcessor<PcdWritingPointsProcessor>(
+      file_writer_factory, builder);
+  RegisterFileWritingPointsProcessor<PlyWritingPointsProcessor>(
+      file_writer_factory, builder);
+  RegisterFileWritingPointsProcessor<XyzWriterPointsProcessor>(
+      file_writer_factory, builder);
+  RegisterFileWritingPointsProcessorWithTrajectories<
+      ProbabilityGridPointsProcessor>(trajectories, file_writer_factory,
+                                      builder);
 }
 
 void PointsProcessorPipelineBuilder::Register(const std::string& name,

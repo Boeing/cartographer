@@ -27,7 +27,9 @@ namespace mapping {
 proto::TrajectoryNodeData ToProto(const TrajectoryNode::Data& constant_data) {
   proto::TrajectoryNodeData proto;
   proto.set_timestamp(common::ToUniversal(constant_data.time));
-  *proto.mutable_filtered_point_cloud() = sensor::CompressedPointCloud(constant_data.filtered_point_cloud).ToProto();
+  *proto.mutable_filtered_point_cloud() =
+      sensor::CompressedPointCloud(constant_data.filtered_point_cloud)
+          .ToProto();
   *proto.mutable_local_pose() = transform::ToProto(constant_data.local_pose);
   return proto;
 }
@@ -36,8 +38,7 @@ TrajectoryNode::Data FromProto(const proto::TrajectoryNodeData& proto) {
   return TrajectoryNode::Data{
       common::FromUniversal(proto.timestamp()),
       {},
-      sensor::CompressedPointCloud(proto.filtered_point_cloud())
-          .Decompress(),
+      sensor::CompressedPointCloud(proto.filtered_point_cloud()).Decompress(),
       {},
       transform::ToRigid3(proto.local_pose())};
 }

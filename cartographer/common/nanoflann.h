@@ -2031,7 +2031,7 @@ struct KDTreeEigenMatrixAdaptor {
   /** @} */
 
 };  // end of KDTreeEigenMatrixAdaptor
-    /** @} */
+/** @} */
 
 /** @} */  // end of grouping
 }  // namespace nanoflann

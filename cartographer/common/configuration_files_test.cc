@@ -33,7 +33,7 @@ TEST(ConfigurationFilesTest, ValidateMapBuilderOptions) {
       return MAP_BUILDER)text";
   EXPECT_NO_FATAL_FAILURE({
     auto file_resolver =
-        ::absl::make_unique< ::cartographer::common::ConfigurationFileResolver>(
+        ::absl::make_unique<::cartographer::common::ConfigurationFileResolver>(
             std::vector<std::string>{
                 std::string(::cartographer::common::kSourceDirectory) +
                 "/configuration_files"});
@@ -50,7 +50,7 @@ TEST(ConfigurationFilesTest, ValidateTrajectoryBuilderOptions) {
       return TRAJECTORY_BUILDER)text";
   EXPECT_NO_FATAL_FAILURE({
     auto file_resolver =
-        ::absl::make_unique< ::cartographer::common::ConfigurationFileResolver>(
+        ::absl::make_unique<::cartographer::common::ConfigurationFileResolver>(
             std::vector<std::string>{
                 std::string(::cartographer::common::kSourceDirectory) +
                 "/configuration_files"});

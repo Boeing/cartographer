@@ -22,18 +22,17 @@ inline Point bresenham2D(const ProbabilityGrid& grid, unsigned int abs_da,
                          unsigned int abs_db, int error_b, int offset_a,
                          int offset_b, unsigned int offset,
                          const unsigned int size_x, unsigned int max_length) {
-  const auto occupied_value = CorrespondenceCostToValue(ProbabilityToCorrespondenceCost(0.5f));
+  const auto occupied_value =
+      CorrespondenceCostToValue(ProbabilityToCorrespondenceCost(0.5f));
   unsigned int end = std::min(max_length, abs_da);
   for (unsigned int i = 0; i < end; ++i) {
     const int my = offset / size_x;
     const int mx = offset - (my * size_x);
 
     const Eigen::Array2i cell{mx, my};
-    if (!grid.limits().Contains(cell))
-        return {-1, -1};
+    if (!grid.limits().Contains(cell)) return {-1, -1};
     auto cc = grid.correspondence_cost_cells().at(grid.ToFlatIndex(cell));
-    if (cc < occupied_value)
-        return {mx, my};
+    if (cc < occupied_value) return {mx, my};
 
     offset += offset_a;
     error_b += abs_db;

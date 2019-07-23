@@ -28,12 +28,15 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   const int cells = side_length / resolution;
 
   ValueConversionTables conversion_tables;
-  auto grid = absl::make_unique<ProbabilityGrid>(MapLimits(resolution, Eigen::Vector2d(side_length, side_length), CellLimits(cells, cells)), &conversion_tables);
+  auto grid = absl::make_unique<ProbabilityGrid>(
+      MapLimits(resolution, Eigen::Vector2d(side_length, side_length),
+                CellLimits(cells, cells)),
+      &conversion_tables);
   ProbabilityGrid& probability_grid = *grid;
 
   for (int ii = 0; ii < cells; ++ii)
     for (int jj = 0; jj < cells; ++jj)
-        probability_grid.SetProbability({ii, jj}, 0.5);
+      probability_grid.SetProbability({ii, jj}, 0.5);
 
   {
     const int box_size_x = cells * 0.8;
@@ -174,8 +177,10 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   for (const auto& pair : icp_result.pairs) {
     cairo_set_source_rgba(cr, 0, 1, 0, 0.5);
     cairo_set_line_width(cr, 1.0);
-    const auto src = probability_grid.limits().GetCellIndex(pair.first.cast<float>());
-    const auto dst = probability_grid.limits().GetCellIndex(pair.second.cast<float>());
+    const auto src =
+        probability_grid.limits().GetCellIndex(pair.first.cast<float>());
+    const auto dst =
+        probability_grid.limits().GetCellIndex(pair.second.cast<float>());
     cairo_move_to(cr, src.x(), src.y());
     cairo_line_to(cr, dst.x(), dst.y());
     cairo_stroke(cr);

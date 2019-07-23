@@ -118,7 +118,8 @@ void FillSubmapSlice(
   ::cartographer::mapping::proto::SubmapQuery::Response response;
   ::cartographer::transform::Rigid3d local_pose;
 
-  ::cartographer::mapping::Submap2D submap(proto.submap_2d(), conversion_tables);
+  ::cartographer::mapping::Submap2D submap(proto.submap_2d(),
+                                           conversion_tables);
   local_pose = submap.local_pose();
   submap.ToResponseProto(global_submap_pose, &response);
 

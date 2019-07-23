@@ -2,9 +2,6 @@
 
 namespace cartographer {
 namespace mapping {
-namespace scan_matching {
-
-
-}  // namespace scan_matching
+namespace scan_matching {}  // namespace scan_matching
 }  // namespace mapping
 }  // namespace cartographer

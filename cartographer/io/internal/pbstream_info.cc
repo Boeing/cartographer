@@ -65,10 +65,8 @@ void Run(const std::string& pbstream_filename, bool all_debug_strings) {
       {SerializedData::kLandmarkData, "landmark_data"},
   };
   // Initialize so zero counts of these are also reported.
-  std::map<std::string, int> data_counts = {
-      {"submap_2d", 0},
-      {"submap_2d_grid", 0}
-  };
+  std::map<std::string, int> data_counts = {{"submap_2d", 0},
+                                            {"submap_2d_grid", 0}};
   SerializedData proto;
   while (deserializer.ReadNextSerializedData(&proto)) {
     if (all_debug_strings) {

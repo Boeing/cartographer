@@ -32,8 +32,8 @@ TEST(TrajectoryNodeTest, ToAndFromProto) {
   const TrajectoryNode::Data expected{
       common::FromUniversal(42),
       {},
-      sensor::CompressedPointCloud(
-          {{Eigen::Vector3f{1.f, 2.f, 0.f}, 0.f}, {Eigen::Vector3f{0.f, 0.f, 1.f}, 0.f}})
+      sensor::CompressedPointCloud({{Eigen::Vector3f{1.f, 2.f, 0.f}, 0.f},
+                                    {Eigen::Vector3f{0.f, 0.f, 1.f}, 0.f}})
           .Decompress(),
       {},
       transform::Rigid3d({1., 2., 3.},
@@ -42,7 +42,8 @@ TEST(TrajectoryNodeTest, ToAndFromProto) {
   const TrajectoryNode::Data actual = FromProto(proto);
   EXPECT_EQ(expected.time, actual.time);
   EXPECT_EQ(expected.filtered_point_cloud, actual.filtered_point_cloud);
-  EXPECT_THAT(actual.local_pose, transform::IsNearly(expected.local_pose, 1e-9));
+  EXPECT_THAT(actual.local_pose,
+              transform::IsNearly(expected.local_pose, 1e-9));
 }
 
 }  // namespace

@@ -11,9 +11,9 @@
 #include "cartographer/common/port.h"
 #include "cartographer/mapping/2d/probability_grid_range_data_inserter_2d.h"
 #include "cartographer/mapping/2d/tsdf_range_data_inserter_2d.h"
-#include "cartographer/mapping/range_data_inserter_interface.h"
 #include "cartographer/mapping/internal/2d/scan_features/circle_detector_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/ceres_scan_matcher_2d.h"
+#include "cartographer/mapping/range_data_inserter_interface.h"
 #include "glog/logging.h"
 
 namespace cartographer {
@@ -23,16 +23,18 @@ ActiveSubmaps2D::ActiveSubmaps2D(const proto::SubmapsOptions2D& options)
     : options_(options), range_data_inserter_(CreateRangeDataInserter()) {}
 
 const std::vector<std::shared_ptr<Submap2D>>& ActiveSubmaps2D::submaps() {
-    return submaps_;
+  return submaps_;
 }
 
 std::vector<std::shared_ptr<const Submap2D>> ActiveSubmaps2D::submaps() const {
-  return std::vector<std::shared_ptr<const Submap2D>>(submaps_.begin(), submaps_.end());
+  return std::vector<std::shared_ptr<const Submap2D>>(submaps_.begin(),
+                                                      submaps_.end());
 }
 
 std::vector<std::shared_ptr<const Submap2D>> ActiveSubmaps2D::InsertRangeData(
     const sensor::RangeData& range_data) {
-  if (submaps_.empty() || submaps_.back()->num_range_data() >= options_.num_range_data()) {
+  if (submaps_.empty() ||
+      submaps_.back()->num_range_data() >= options_.num_range_data()) {
     AddSubmap(range_data.origin.head<2>());
   }
   for (auto& submap : submaps_) {
@@ -41,7 +43,8 @@ std::vector<std::shared_ptr<const Submap2D>> ActiveSubmaps2D::InsertRangeData(
   if (submaps_.front()->num_range_data() >= 2 * options_.num_range_data()) {
     submaps_.front()->Finish();
   }
-  return std::vector<std::shared_ptr<const Submap2D>>(submaps_.begin(), submaps_.end());
+  return std::vector<std::shared_ptr<const Submap2D>>(submaps_.begin(),
+                                                      submaps_.end());
 }
 
 std::unique_ptr<RangeDataInserterInterface>

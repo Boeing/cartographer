@@ -6,9 +6,9 @@
 
 #include "Eigen/Core"
 #include "cartographer/common/lua_parameter_dictionary.h"
-#include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/mapping/2d/grid_2d.h"
 #include "cartographer/mapping/2d/map_limits.h"
+#include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/mapping/proto/2d/submaps_options_2d.pb.h"
 #include "cartographer/mapping/proto/serialization.pb.h"
 #include "cartographer/mapping/proto/submap_visualization.pb.h"
@@ -40,7 +40,8 @@ class ActiveSubmaps2D {
   ActiveSubmaps2D& operator=(const ActiveSubmaps2D&) = delete;
 
   // Inserts 'range_data' into the Submap collection.
-  std::vector<std::shared_ptr<const Submap2D>> InsertRangeData(const sensor::RangeData& range_data);
+  std::vector<std::shared_ptr<const Submap2D>> InsertRangeData(
+      const sensor::RangeData& range_data);
 
   const std::vector<std::shared_ptr<Submap2D>>& submaps();
   std::vector<std::shared_ptr<const Submap2D>> submaps() const;

@@ -27,10 +27,10 @@
 #include "cartographer/common/port.h"
 #include "cartographer/mapping/2d/probability_grid_range_data_inserter_2d.h"
 #include "cartographer/mapping/2d/tsdf_range_data_inserter_2d.h"
-#include "cartographer/mapping/range_data_inserter_interface.h"
+#include "cartographer/mapping/feature.h"
 #include "cartographer/mapping/internal/2d/scan_features/circle_detector_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/ceres_scan_matcher_2d.h"
-#include "cartographer/mapping/feature.h"
+#include "cartographer/mapping/range_data_inserter_interface.h"
 #include "glog/logging.h"
 
 namespace cartographer {
@@ -96,7 +96,7 @@ Submap2D::Submap2D(const proto::Submap2D& proto,
   set_insertion_finished(proto.finished());
   circle_features_.reserve(proto.circle_features_size());
   for (const auto& cf : proto.circle_features())
-      circle_features_.push_back(FromProto(cf));
+    circle_features_.push_back(FromProto(cf));
 }
 
 proto::Submap Submap2D::ToProto(const bool include_grid_data) const {
@@ -111,7 +111,7 @@ proto::Submap Submap2D::ToProto(const bool include_grid_data) const {
   }
   submap_2d->mutable_circle_features()->Reserve(circle_features_.size());
   for (const CircleFeature& cf : circle_features_)
-      *submap_2d->add_circle_features() = ::cartographer::mapping::ToProto(cf);
+    *submap_2d->add_circle_features() = ::cartographer::mapping::ToProto(cf);
   return proto;
 }
 
@@ -131,11 +131,10 @@ void Submap2D::UpdateFromProto(const proto::Submap& proto) {
       LOG(FATAL) << "proto::Submap2D has grid with unknown type.";
     }
   }
-  if (submap_2d.circle_features_size() > 0)
-  {
-      circle_features_.clear();
-      for (const auto& cf : submap_2d.circle_features())
-          circle_features_.push_back(FromProto(cf));
+  if (submap_2d.circle_features_size() > 0) {
+    circle_features_.clear();
+    for (const auto& cf : submap_2d.circle_features())
+      circle_features_.push_back(FromProto(cf));
   }
 }
 

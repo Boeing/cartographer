@@ -68,14 +68,12 @@ class ConstraintBuilder2D {
   ConstraintBuilder2D(const ConstraintBuilder2D&) = delete;
   ConstraintBuilder2D& operator=(const ConstraintBuilder2D&) = delete;
 
-  void LocalSearchForConstraint(const NodeId node_id,
-                                const SubmapId submap_id,
+  void LocalSearchForConstraint(const NodeId node_id, const SubmapId submap_id,
                                 const transform::Rigid2d& initial_relative_pose,
                                 const Submap2D& submap,
                                 const TrajectoryNode::Data& constant_data);
 
-  void GlobalSearchForConstraint(const NodeId node_id,
-                                 const SubmapId submap_id,
+  void GlobalSearchForConstraint(const NodeId node_id, const SubmapId submap_id,
                                  const Submap2D& submap,
                                  const TrajectoryNode::Data& constant_data);
 
@@ -98,7 +96,8 @@ class ConstraintBuilder2D {
  private:
   struct SubmapScanMatcher {
     const Submap2D& submap;
-    std::unique_ptr<scan_matching::GlobalICPScanMatcher2D> global_icp_scan_matcher;
+    std::unique_ptr<scan_matching::GlobalICPScanMatcher2D>
+        global_icp_scan_matcher;
     std::weak_ptr<common::Task> creation_task_handle;
   };
 
@@ -111,8 +110,7 @@ class ConstraintBuilder2D {
   // Runs in a background thread and does computations for an additional
   // constraint, assuming 'submap' and 'compressed_point_cloud' do not change
   // anymore. As output, it may create a new Constraint in 'constraint'.
-  void ComputeConstraint(const NodeId node_id,
-                         const SubmapId submap_id,
+  void ComputeConstraint(const NodeId node_id, const SubmapId submap_id,
                          const transform::Rigid2d initial_relative_pose,
                          const Submap2D& submap,
                          const TrajectoryNode::Data& constant_data,
@@ -128,7 +126,8 @@ class ConstraintBuilder2D {
   absl::Mutex mutex_;
 
   // 'callback' set by WhenDone().
-  std::unique_ptr<std::function<void(const Result&)>> when_done_ GUARDED_BY(mutex_);
+  std::unique_ptr<std::function<void(const Result&)>> when_done_
+      GUARDED_BY(mutex_);
 
   // TODO(gaschler): Use atomics instead of mutex to access these counters.
   // Number of the node in reaction to which computations are currently

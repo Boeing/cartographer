@@ -61,8 +61,12 @@ class Submap2D : public Submap {
                        const RangeDataInserterInterface* range_data_inserter);
   void Finish();
 
-  void SetCircleFeatures(const std::vector<CircleFeature>& circle_features) { circle_features_ = circle_features; }
-  const std::vector<CircleFeature>& CircleFeatures() const { return circle_features_; }
+  void SetCircleFeatures(const std::vector<CircleFeature>& circle_features) {
+    circle_features_ = circle_features;
+  }
+  const std::vector<CircleFeature>& CircleFeatures() const {
+    return circle_features_;
+  }
 
  private:
   std::vector<CircleFeature> circle_features_;

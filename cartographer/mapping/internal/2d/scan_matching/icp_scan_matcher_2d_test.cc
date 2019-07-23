@@ -31,12 +31,15 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
   const int cells = side_length / resolution;
 
   ValueConversionTables conversion_tables;
-  auto grid = absl::make_unique<ProbabilityGrid>(MapLimits(resolution, Eigen::Vector2d(side_length, side_length), CellLimits(cells, cells)), &conversion_tables);
+  auto grid = absl::make_unique<ProbabilityGrid>(
+      MapLimits(resolution, Eigen::Vector2d(side_length, side_length),
+                CellLimits(cells, cells)),
+      &conversion_tables);
   ProbabilityGrid& probability_grid = *grid;
 
   for (int ii = 0; ii < cells; ++ii)
     for (int jj = 0; jj < cells; ++jj)
-        probability_grid.SetProbability({ii, jj}, 0.5);
+      probability_grid.SetProbability({ii, jj}, 0.5);
 
   // insert some random box shapes
   std::uniform_int_distribution<int> box_dist;
@@ -78,7 +81,8 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
     const int pole_y = pole_dist(prng, param_t(0, cells));
 
     const float prob = 1.0;
-    const double r2 = static_cast<double>(pole_size) * static_cast<double>(pole_size);
+    const double r2 =
+        static_cast<double>(pole_size) * static_cast<double>(pole_size);
 
     pole_centers.push_back({pole_x, pole_y});
 
@@ -91,10 +95,9 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
         const double w = static_cast<double>(ii - pole_x);
         const double h = static_cast<double>(jj - pole_y);
         const double _r2 = w * w + h * h;
-        if (_r2 <= r2)
-        {
-            probability_grid.SetProbability({ii, jj}, prob);
-            reflective_cells.insert({ii, jj});
+        if (_r2 <= r2) {
+          probability_grid.SetProbability({ii, jj}, prob);
+          reflective_cells.insert({ii, jj});
         }
       }
     }
@@ -102,7 +105,8 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
   }
 
   // generate a scan
-  transform::Rigid2f inserted_pose({side_length / 2.0f, side_length / 2.0f}, 0.234f);
+  transform::Rigid2f inserted_pose({side_length / 2.0f, side_length / 2.0f},
+                                   0.234f);
 
   sensor::PointCloud unperturbed_point_cloud;
   inserted_pose =
@@ -119,10 +123,12 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
     const Eigen::Vector2f dir(x, y);
     const Eigen::Vector2f end = inserted_pose.translation() + dir * 30.;
 
-    const auto map_start = probability_grid.limits().GetCellIndex(inserted_pose.translation());
+    const auto map_start =
+        probability_grid.limits().GetCellIndex(inserted_pose.translation());
     const auto map_end = probability_grid.limits().GetCellIndex(end);
 
-    auto p = raytraceLine(probability_grid, map_start.x(), map_start.y(), map_end.x(), map_end.y(), cells, 30.f / resolution);
+    auto p = raytraceLine(probability_grid, map_start.x(), map_start.y(),
+                          map_end.x(), map_end.y(), cells, 30.f / resolution);
     if (p.x > 0 && p.y > 0) {
       const auto real_p = probability_grid.limits().GetCellCenter({p.x, p.y});
       const auto diff = real_p - inserted_pose.translation();
@@ -131,25 +137,29 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
                Eigen::Vector3f{diff.x(), diff.y(), 0.f};
       float intensity = 0;
       if (reflective_cells.find({p.x, p.y}) != reflective_cells.end())
-          intensity = 9000;
+        intensity = 9000;
       unperturbed_point_cloud.push_back({r, intensity});
     }
   }
 
   // find circle features in the scan
-  const auto poles = DetectReflectivePoles(unperturbed_point_cloud, pole_radius);
+  const auto poles =
+      DetectReflectivePoles(unperturbed_point_cloud, pole_radius);
   std::vector<CircleFeature> scan_circle_features;
-  for (const auto& c : poles)
-  {
-      const auto p = FitCircle(c);
-      scan_circle_features.push_back(CircleFeature{Keypoint{{p.position.x(), p.position.y(), 0.0f}}, CircleDescriptor{p.mse, p.radius}});
+  for (const auto& c : poles) {
+    const auto p = FitCircle(c);
+    scan_circle_features.push_back(
+        CircleFeature{Keypoint{{p.position.x(), p.position.y(), 0.0f}},
+                      CircleDescriptor{p.mse, p.radius}});
   }
 
   std::vector<CircleFeature> map_circle_features;
-  for (const auto& c : pole_centers)
-  {
-      const auto real_p = probability_grid.limits().GetCellCenter({c.first, c.second});
-      map_circle_features.push_back(CircleFeature{Keypoint{{real_p.x(), real_p.y(), 0.0f}}, CircleDescriptor{0, pole_radius}});
+  for (const auto& c : pole_centers) {
+    const auto real_p =
+        probability_grid.limits().GetCellCenter({c.first, c.second});
+    map_circle_features.push_back(
+        CircleFeature{Keypoint{{real_p.x(), real_p.y(), 0.0f}},
+                      CircleDescriptor{0, pole_radius}});
   }
 
   proto::ICPScanMatcherOptions2D icp_config;
@@ -169,11 +179,12 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
 
   transform::Rigid2d pose_estimate({inserted_pose.translation().x() + 0.2,
                                     inserted_pose.translation().y() + 0.2},
-                                    inserted_pose.rotation().angle() + 0.1);
+                                   inserted_pose.rotation().angle() + 0.1);
 
   auto surface = probability_grid.DrawSurface();
 
-  auto result = icp_scan_matcher.Match(pose_estimate, unperturbed_point_cloud, scan_circle_features);
+  auto result = icp_scan_matcher.Match(pose_estimate, unperturbed_point_cloud,
+                                       scan_circle_features);
 
   cairo_t* cr = cairo_create(surface.get());
 
@@ -203,15 +214,16 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
   for (const auto& pair : result.pairs) {
     cairo_set_source_rgba(cr, 0, 1, 0, 0.5);
     cairo_set_line_width(cr, 1.0);
-    const auto src = probability_grid.limits().GetCellIndex(pair.first.cast<float>());
-    const auto dst = probability_grid.limits().GetCellIndex(pair.second.cast<float>());
+    const auto src =
+        probability_grid.limits().GetCellIndex(pair.first.cast<float>());
+    const auto dst =
+        probability_grid.limits().GetCellIndex(pair.second.cast<float>());
     cairo_move_to(cr, src.x(), src.y());
     cairo_line_to(cr, dst.x(), dst.y());
     cairo_stroke(cr);
   }
 
-  for (const auto& c : poles)
-  {
+  for (const auto& c : poles) {
     cairo_set_source_rgba(cr, 1, 1, 0, 1.0);
     cairo_set_line_width(cr, 1.0);
     const auto tr = inserted_pose * c.position;
@@ -220,12 +232,13 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
     cairo_stroke(cr);
   }
 
-  for (const auto& c : submap.CircleFeatures())
-  {
+  for (const auto& c : submap.CircleFeatures()) {
     cairo_set_source_rgba(cr, 1, 0.2, 0.2, 1.0);
     cairo_set_line_width(cr, 1.0);
-    const auto mp = probability_grid.limits().GetCellIndex(c.keypoint.position.head<2>());
-    cairo_arc(cr, mp.x(), mp.y(), 2 * c.fdescriptor.radius / resolution, 0, 2 * M_PI);
+    const auto mp =
+        probability_grid.limits().GetCellIndex(c.keypoint.position.head<2>());
+    cairo_arc(cr, mp.x(), mp.y(), 2 * c.fdescriptor.radius / resolution, 0,
+              2 * M_PI);
     cairo_stroke(cr);
   }
 

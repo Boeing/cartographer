@@ -65,13 +65,14 @@ struct PoseGraphData {
 
   // Global submap poses currently used for displaying data.
   MapById<SubmapId, optimization::SubmapSpec2D> global_submap_poses_2d;
-//  MapById<SubmapId, optimization::SubmapSpec3D> global_submap_poses_3d;
+  //  MapById<SubmapId, optimization::SubmapSpec3D> global_submap_poses_3d;
 
   // Data that are currently being shown.
   MapById<NodeId, TrajectoryNode> trajectory_nodes;
 
   // Global landmark poses with all observations.
-  std::map<std::string /* landmark ID */, PoseGraphInterface::LandmarkNode> landmark_nodes;
+  std::map<std::string /* landmark ID */, PoseGraphInterface::LandmarkNode>
+      landmark_nodes;
 
   // How our various trajectories are related.
   TrajectoryConnectivityState trajectory_connectivity_state;

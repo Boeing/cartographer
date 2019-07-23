@@ -72,19 +72,22 @@ void MaybeAddPureLocalizationTrimmer(
 proto::MapBuilderOptions CreateMapBuilderOptions(
     common::LuaParameterDictionary* const parameter_dictionary) {
   proto::MapBuilderOptions options;
-  options.set_num_background_threads(parameter_dictionary->GetNonNegativeInt("num_background_threads"));
-  options.set_collate_by_trajectory(parameter_dictionary->GetBool("collate_by_trajectory"));
-  *options.mutable_pose_graph_options() = CreatePoseGraphOptions(parameter_dictionary->GetDictionary("pose_graph").get());
+  options.set_num_background_threads(
+      parameter_dictionary->GetNonNegativeInt("num_background_threads"));
+  options.set_collate_by_trajectory(
+      parameter_dictionary->GetBool("collate_by_trajectory"));
+  *options.mutable_pose_graph_options() = CreatePoseGraphOptions(
+      parameter_dictionary->GetDictionary("pose_graph").get());
   return options;
 }
 
 MapBuilder::MapBuilder(const proto::MapBuilderOptions& options)
     : options_(options), thread_pool_(options.num_background_threads()) {
-    pose_graph_ = absl::make_unique<PoseGraph2D>(
-        options_.pose_graph_options(),
-        absl::make_unique<optimization::OptimizationProblem2D>(
-            options_.pose_graph_options().optimization_problem_options()),
-        &thread_pool_);
+  pose_graph_ = absl::make_unique<PoseGraph2D>(
+      options_.pose_graph_options(),
+      absl::make_unique<optimization::OptimizationProblem2D>(
+          options_.pose_graph_options().optimization_problem_options()),
+      &thread_pool_);
   if (options.collate_by_trajectory()) {
     sensor_collator_ = absl::make_unique<sensor::TrajectoryCollator>();
   } else {

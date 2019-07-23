@@ -29,11 +29,15 @@ proto::ConstraintBuilderOptions CreateConstraintBuilderOptions(
     common::LuaParameterDictionary* const parameter_dictionary) {
   proto::ConstraintBuilderOptions options;
 
-  options.set_min_local_search_score(parameter_dictionary->GetDouble("min_local_search_score"));
-  options.set_min_global_search_score(parameter_dictionary->GetDouble("min_global_search_score"));
+  options.set_min_local_search_score(
+      parameter_dictionary->GetDouble("min_local_search_score"));
+  options.set_min_global_search_score(
+      parameter_dictionary->GetDouble("min_global_search_score"));
 
-  options.set_constraint_translation_weight(parameter_dictionary->GetDouble("constraint_translation_weight"));
-  options.set_constraint_rotation_weight(parameter_dictionary->GetDouble("constraint_rotation_weight"));
+  options.set_constraint_translation_weight(
+      parameter_dictionary->GetDouble("constraint_translation_weight"));
+  options.set_constraint_rotation_weight(
+      parameter_dictionary->GetDouble("constraint_rotation_weight"));
 
   options.set_log_matches(parameter_dictionary->GetBool("log_matches"));
 
@@ -43,10 +47,13 @@ proto::ConstraintBuilderOptions CreateConstraintBuilderOptions(
 
   *options.mutable_global_icp_scan_matcher_options_2d() =
       scan_matching::CreateGlobalICPScanMatcherOptions2D(
-          parameter_dictionary->GetDictionary("global_icp_scan_matcher_options_2d").get());
+          parameter_dictionary
+              ->GetDictionary("global_icp_scan_matcher_options_2d")
+              .get());
 
   options.set_min_icp_score(parameter_dictionary->GetDouble("min_icp_score"));
-  options.set_min_scan_agreement_fraction(parameter_dictionary->GetDouble("min_scan_agreement_fraction"));
+  options.set_min_scan_agreement_fraction(
+      parameter_dictionary->GetDouble("min_scan_agreement_fraction"));
 
   return options;
 }

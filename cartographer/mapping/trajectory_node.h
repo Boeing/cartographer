@@ -23,10 +23,10 @@
 #include "Eigen/Core"
 #include "absl/types/optional.h"
 #include "cartographer/common/time.h"
+#include "cartographer/mapping/feature.h"
 #include "cartographer/mapping/proto/trajectory_node_data.pb.h"
 #include "cartographer/sensor/range_data.h"
 #include "cartographer/transform/rigid_transform.h"
-#include "cartographer/mapping/feature.h"
 
 namespace cartographer {
 namespace mapping {
@@ -44,7 +44,6 @@ struct TrajectoryNodePose {
 
 struct TrajectoryNode {
   struct Data {
-
     common::Time time;
 
     // Complete scan

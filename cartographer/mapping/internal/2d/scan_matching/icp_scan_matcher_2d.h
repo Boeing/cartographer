@@ -6,11 +6,11 @@
 
 #include "Eigen/Core"
 #include "cartographer/common/lua_parameter_dictionary.h"
-#include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/mapping/2d/grid_2d.h"
+#include "cartographer/mapping/2d/submap_2d.h"
+#include "cartographer/mapping/feature.h"
 #include "cartographer/mapping/internal/2d/scan_matching/nearest_feature_cost_function_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/nearest_neighbour_cost_function_2d.h"
-#include "cartographer/mapping/feature.h"
 #include "cartographer/mapping/proto/scan_matching/icp_scan_matcher_options_2d.pb.h"
 #include "cartographer/sensor/point_cloud.h"
 #include "ceres/ceres.h"
@@ -24,7 +24,8 @@ proto::ICPScanMatcherOptions2D CreateICPScanMatcherOptions2D(
 
 class ICPScanMatcher2D {
  public:
-  explicit ICPScanMatcher2D(const Submap2D& submap, const proto::ICPScanMatcherOptions2D& options);
+  explicit ICPScanMatcher2D(const Submap2D& submap,
+                            const proto::ICPScanMatcherOptions2D& options);
   virtual ~ICPScanMatcher2D();
 
   ICPScanMatcher2D(const ICPScanMatcher2D&) = delete;
@@ -46,7 +47,9 @@ class ICPScanMatcher2D {
                         const std::vector<CircleFeature>& features = {}) const;
 
   const RealIndex& kdtree() const { return kdtree_; }
-  const CircleFeatureIndex& circle_feature_index() const { return circle_feature_index_; }
+  const CircleFeatureIndex& circle_feature_index() const {
+    return circle_feature_index_;
+  }
 
  private:
   const proto::ICPScanMatcherOptions2D options_;

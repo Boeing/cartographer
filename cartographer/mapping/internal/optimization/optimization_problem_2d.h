@@ -52,7 +52,8 @@ struct SubmapSpec2D {
 };
 
 class OptimizationProblem2D
-    : public OptimizationProblemInterface<NodeSpec2D, SubmapSpec2D, transform::Rigid2d> {
+    : public OptimizationProblemInterface<NodeSpec2D, SubmapSpec2D,
+                                          transform::Rigid2d> {
  public:
   explicit OptimizationProblem2D(
       const optimization::proto::OptimizationProblemOptions& options);

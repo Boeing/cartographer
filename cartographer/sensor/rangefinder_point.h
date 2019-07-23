@@ -69,7 +69,8 @@ inline bool operator==(const TimedRangefinderPoint& lhs,
 
 inline RangefinderPoint FromProto(
     const proto::RangefinderPoint& rangefinder_point_proto) {
-  return {transform::ToEigen(rangefinder_point_proto.position()), rangefinder_point_proto.intensity()};
+  return {transform::ToEigen(rangefinder_point_proto.position()),
+          rangefinder_point_proto.intensity()};
 }
 
 inline proto::RangefinderPoint ToProto(

@@ -142,7 +142,8 @@ void AddToProtoGraph(const proto::Node& node_data,
 
 void AddToProtoGraph(const proto::Submap& submap_data,
                      proto::PoseGraph* pose_graph) {
-  auto* trajectory = CreateTrajectoryIfNeeded(submap_data.submap_id().trajectory_id(), pose_graph);
+  auto* trajectory = CreateTrajectoryIfNeeded(
+      submap_data.submap_id().trajectory_id(), pose_graph);
   auto* submap = trajectory->add_submap();
   submap->set_submap_index(submap_data.submap_id().submap_index());
   *submap->mutable_pose() = submap_data.submap_2d().local_pose();

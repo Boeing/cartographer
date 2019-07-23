@@ -78,12 +78,12 @@ class LocalTrajectoryBuilder2D {
 
  private:
   std::unique_ptr<MatchingResult> AddAccumulatedRangeData(
-      common::Time time,
-      const transform::Rigid3d& pose_prediction,
+      common::Time time, const transform::Rigid3d& pose_prediction,
       const sensor::RangeData& range_data_wrt_tracking,
       const absl::optional<common::Duration>& sensor_duration);
 
-  // Scan matches 'filtered_gravity_aligned_point_cloud' and returns the observed pose, or nullptr on failure
+  // Scan matches 'filtered_gravity_aligned_point_cloud' and returns the
+  // observed pose, or nullptr on failure
   std::unique_ptr<transform::Rigid2d> ScanMatch(
       common::Time time, const transform::Rigid2d& pose_prediction,
       const sensor::PointCloud& filtered_gravity_aligned_point_cloud);

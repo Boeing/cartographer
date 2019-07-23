@@ -24,8 +24,6 @@
 
 namespace cartographer {
 namespace mapping {
-namespace {
-
-}  // namespace
+namespace {}  // namespace
 }  // namespace mapping
 }  // namespace cartographer

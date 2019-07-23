@@ -22,7 +22,7 @@ struct CircleFeatureSet {
     else if (dim == 1)
       return data[idx].keypoint.position.y();
     else
-       return data[idx].fdescriptor.radius;
+      return data[idx].fdescriptor.radius;
   }
 
   template <class BBOX>
@@ -32,30 +32,34 @@ struct CircleFeatureSet {
 };
 
 struct CircleFeatureDistanceAdapter {
- typedef float ElementType;
- typedef float DistanceType;
- const CircleFeatureSet& data_source;
+  typedef float ElementType;
+  typedef float DistanceType;
+  const CircleFeatureSet& data_source;
 
- CircleFeatureDistanceAdapter(const CircleFeatureSet& _data_source)
-     : data_source(_data_source) {}
+  CircleFeatureDistanceAdapter(const CircleFeatureSet& _data_source)
+      : data_source(_data_source) {}
 
- inline DistanceType evalMetric(const float* a, const size_t b_idx, size_t size) const {
-   DistanceType result = DistanceType();
-   const DistanceType diff_x = a[0] - data_source.kdtree_get_pt(b_idx, 0);
-   const DistanceType diff_y = a[1] - data_source.kdtree_get_pt(b_idx, 1);
-   const DistanceType diff_r = a[2] - data_source.kdtree_get_pt(b_idx, 2);
-   // distance of radius is weighted higher to make dissimilar radii further apart
-   result = diff_x*diff_x + diff_y*diff_y + 4.0f * (diff_r * diff_r);
-   return result;
- }
+  inline DistanceType evalMetric(const float* a, const size_t b_idx,
+                                 size_t size) const {
+    DistanceType result = DistanceType();
+    const DistanceType diff_x = a[0] - data_source.kdtree_get_pt(b_idx, 0);
+    const DistanceType diff_y = a[1] - data_source.kdtree_get_pt(b_idx, 1);
+    const DistanceType diff_r = a[2] - data_source.kdtree_get_pt(b_idx, 2);
+    // distance of radius is weighted higher to make dissimilar radii further
+    // apart
+    result = diff_x * diff_x + diff_y * diff_y + 4.0f * (diff_r * diff_r);
+    return result;
+  }
 
- template <typename U, typename V>
- inline DistanceType accum_dist(const U a, const V b, const size_t) const {
-   return (a - b) * (a - b);
- }
+  template <typename U, typename V>
+  inline DistanceType accum_dist(const U a, const V b, const size_t) const {
+    return (a - b) * (a - b);
+  }
 };
 
-typedef nanoflann::KDTreeSingleIndexAdaptor<CircleFeatureDistanceAdapter, CircleFeatureSet, 3> CircleFeatureKDTree;
+typedef nanoflann::KDTreeSingleIndexAdaptor<CircleFeatureDistanceAdapter,
+                                            CircleFeatureSet, 3>
+    CircleFeatureKDTree;
 
 struct CircleFeatureIndex {
   CircleFeatureSet feature_set;
@@ -77,7 +81,8 @@ class NearestFeatureCostFunction2D {
     Eigen::Matrix<T, 3, 3> transform;
     transform << rotation_matrix, translation, T(0.), T(0.), T(1.);
 
-    const Eigen::Matrix<T, 3, 1> point((T(src_.keypoint.position[0])), (T(src_.keypoint.position[1])), T(1.));
+    const Eigen::Matrix<T, 3, 1> point((T(src_.keypoint.position[0])),
+                                       (T(src_.keypoint.position[1])), T(1.));
     const Eigen::Matrix<T, 3, 1> world = transform * point;
 
     const size_t num_results = 1;
@@ -94,21 +99,25 @@ class NearestFeatureCostFunction2D {
 
     index_.findNeighbors(result_set, &query_pt[0], nanoflann::SearchParams(10));
 
-    residual[0] = T(scaling_factor_) * (world[0] - T(index_.dataset.data[ret_index].keypoint.position[0]));
-    residual[1] = T(scaling_factor_) * (world[1] - T(index_.dataset.data[ret_index].keypoint.position[1]));
+    residual[0] =
+        T(scaling_factor_) *
+        (world[0] - T(index_.dataset.data[ret_index].keypoint.position[0]));
+    residual[1] =
+        T(scaling_factor_) *
+        (world[1] - T(index_.dataset.data[ret_index].keypoint.position[1]));
 
     return true;
   }
 
  private:
   NearestFeatureCostFunction2D(const NearestFeatureCostFunction2D&) = delete;
-  NearestFeatureCostFunction2D& operator=(const NearestFeatureCostFunction2D&) = delete;
+  NearestFeatureCostFunction2D& operator=(const NearestFeatureCostFunction2D&) =
+      delete;
 
   const double scaling_factor_;
   const CircleFeature src_;
   const CircleFeatureKDTree& index_;
 };
-
 
 }  // namespace scan_matching
 }  // namespace mapping

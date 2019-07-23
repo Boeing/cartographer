@@ -77,8 +77,10 @@ class SingleNearestNeighbourCostFunction2D {
     kdtree_.findNeighbors(result_set, &query_pt[0],
                           nanoflann::SearchParams(10));
 
-    residual[0] = T(scaling_factor_) * (world[0] - T(kdtree_.dataset.cells[ret_index].x));
-    residual[1] = T(scaling_factor_) * (world[1] - T(kdtree_.dataset.cells[ret_index].y));
+    residual[0] =
+        T(scaling_factor_) * (world[0] - T(kdtree_.dataset.cells[ret_index].x));
+    residual[1] =
+        T(scaling_factor_) * (world[1] - T(kdtree_.dataset.cells[ret_index].y));
 
     return true;
   }

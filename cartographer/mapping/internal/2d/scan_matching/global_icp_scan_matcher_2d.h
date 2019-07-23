@@ -6,8 +6,8 @@
 #include <vector>
 
 #include "Eigen/Core"
-#include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/mapping/2d/grid_2d.h"
+#include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/icp_scan_matcher_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/nearest_neighbour_cost_function_2d.h"
 #include "cartographer/mapping/proto/scan_matching/global_icp_scan_matcher_options_2d.pb.h"
@@ -42,7 +42,9 @@ class EmptySpaceSampler {
 
 class GlobalICPScanMatcher2D {
  public:
-  explicit GlobalICPScanMatcher2D(const Submap2D& submap, const proto::GlobalICPScanMatcherOptions2D& options);
+  explicit GlobalICPScanMatcher2D(
+      const Submap2D& submap,
+      const proto::GlobalICPScanMatcherOptions2D& options);
   virtual ~GlobalICPScanMatcher2D();
 
   GlobalICPScanMatcher2D(const GlobalICPScanMatcher2D&) = delete;
@@ -86,8 +88,6 @@ class GlobalICPScanMatcher2D {
       return false;
     }
   };
-
-
 
   typedef nanoflann::KDTreeSingleIndexAdaptor<
       nanoflann::L2_Simple_Adaptor<double, ClusterData, double>, ClusterData, 3>

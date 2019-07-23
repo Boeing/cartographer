@@ -8,22 +8,21 @@
 #include "cartographer/common/math.h"
 #include "cartographer/mapping/proto/feature.pb.h"
 
-
 namespace cartographer {
 namespace mapping {
 
 struct Keypoint {
-    Eigen::Vector3f position;
+  Eigen::Vector3f position;
 };
 
 struct CircleDescriptor {
-    float score;
-    float radius;
+  float score;
+  float radius;
 };
 
 struct CircleFeature {
-    Keypoint keypoint;
-    CircleDescriptor fdescriptor;
+  Keypoint keypoint;
+  CircleDescriptor fdescriptor;
 };
 
 proto::Keypoint ToProto(const Keypoint& feature);
