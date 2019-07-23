@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "cartographer/mapping/internal/optimization/optimization_problem_2d.h"
-#include "cartographer/mapping/internal/optimization/optimization_problem_3d.h"
 #include "cartographer/mapping/internal/trajectory_connectivity_state.h"
 #include "cartographer/mapping/pose_graph.h"
 #include "cartographer/mapping/pose_graph_interface.h"
@@ -66,7 +65,7 @@ struct PoseGraphData {
 
   // Global submap poses currently used for displaying data.
   MapById<SubmapId, optimization::SubmapSpec2D> global_submap_poses_2d;
-  MapById<SubmapId, optimization::SubmapSpec3D> global_submap_poses_3d;
+  //  MapById<SubmapId, optimization::SubmapSpec3D> global_submap_poses_3d;
 
   // Data that are currently being shown.
   MapById<NodeId, TrajectoryNode> trajectory_nodes;

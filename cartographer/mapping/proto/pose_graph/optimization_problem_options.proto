@@ -18,47 +18,30 @@ package cartographer.mapping.optimization.proto;
 
 import "cartographer/common/proto/ceres_solver_options.proto";
 
-// NEXT ID: 19
 message OptimizationProblemOptions {
   // Scaling parameter for Huber loss function.
   double huber_scale = 1;
 
-  // Scaling parameter for the IMU acceleration term.
-  double acceleration_weight = 8;
+  // Scaling parameter for translation between consecutive nodes based on the local SLAM pose.
+  double local_slam_pose_translation_weight = 2;
 
-  // Scaling parameter for the IMU rotation term.
-  double rotation_weight = 9;
+  // Scaling parameter for rotation between consecutive nodes based on the local SLAM pose.
+  double local_slam_pose_rotation_weight = 3;
 
-  // Scaling parameter for translation between consecutive nodes based on the
-  // local SLAM pose.
-  double local_slam_pose_translation_weight = 14;
+  // Scaling parameter for translation between consecutive nodes based on the odometry.
+  double odometry_translation_weight = 4;
 
-  // Scaling parameter for rotation between consecutive nodes based on the
-  // local SLAM pose.
-  double local_slam_pose_rotation_weight = 15;
-
-  // Scaling parameter for translation between consecutive nodes based on the
-  // odometry.
-  double odometry_translation_weight = 16;
-
-  // Scaling parameter for rotation between consecutive nodes based on the
-  // odometry.
-  double odometry_rotation_weight = 17;
+  // Scaling parameter for rotation between consecutive nodes based on the odometry.
+  double odometry_rotation_weight = 5;
 
   // Scaling parameter for the FixedFramePose translation.
-  double fixed_frame_pose_translation_weight = 11;
+  double fixed_frame_pose_translation_weight = 6;
 
   // Scaling parameter for the FixedFramePose rotation.
-  double fixed_frame_pose_rotation_weight = 12;
-
-  // 3D only: fix Z.
-  bool fix_z_in_3d = 13;
-
-  // 3D only: activate online IMU extrinsics.
-  bool use_online_imu_extrinsics_in_3d = 18;
+  double fixed_frame_pose_rotation_weight = 7;
 
   // If true, the Ceres solver summary will be logged for every optimization.
-  bool log_solver_summary = 5;
+  bool log_solver_summary = 8;
 
-  common.proto.CeresSolverOptions ceres_solver_options = 7;
+  common.proto.CeresSolverOptions ceres_solver_options = 9;
 }

@@ -20,13 +20,11 @@ import "cartographer/mapping/proto/pose_graph/constraint_builder_options.proto";
 import "cartographer/mapping/proto/pose_graph/optimization_problem_options.proto";
 
 message PoseGraphOptions {
-  // Online loop closure: If positive, will run the loop closure while the map
-  // is built.
+  // Online loop closure: If positive, will run the loop closure while the map is built.
   int32 optimize_every_n_nodes = 1;
 
   // Options for the constraint builder.
-  mapping.constraints.proto.ConstraintBuilderOptions
-      constraint_builder_options = 3;
+  mapping.constraints.proto.ConstraintBuilderOptions constraint_builder_options = 3;
 
   // Weight used in the optimization problem for the translational component of
   // non-loop-closure scan matcher constraints.
@@ -37,16 +35,11 @@ message PoseGraphOptions {
   double matcher_rotation_weight = 8;
 
   // Options for the optimization problem.
-  mapping.optimization.proto.OptimizationProblemOptions
-      optimization_problem_options = 4;
+  mapping.optimization.proto.OptimizationProblemOptions optimization_problem_options = 4;
 
   // Number of iterations to use in 'optimization_problem_options' for the final
   // optimization.
   int32 max_num_final_iterations = 6;
-
-  // Rate at which we sample a single trajectory's nodes for global
-  // localization.
-  double global_sampling_ratio = 5;
 
   // Whether to output histograms for the pose residuals.
   bool log_residual_histograms = 9;
@@ -65,4 +58,21 @@ message PoseGraphOptions {
   // Instantiates the 'OverlappingSubmapsTrimmer2d' which trims submaps from the
   // pose graph based on the area of overlap.
   OverlappingSubmapsTrimmerOptions2D overlapping_submaps_trimmer_2d = 11;
+
+  // Search for constraints globally until until this number reached
+  // Once this number is reached constraint searches are local
+  int32 min_globally_searched_constraints_for_trajectory = 12;
+
+  // Continue to search for global constraints on this submap until this number reached
+  int32 min_global_constraints_for_submap = 13;
+
+    // Continue to search for local constraints on this submap until this number reached
+  int32 min_local_constraints_for_submap = 14;
+
+  // Search for constraints if submap within this distance
+  double max_constraint_match_distance = 15;
+
+  // Maximum size for work queue
+  // INTER constraint searches are skipped beyond this size
+  int32 max_work_queue_size = 16;
 }

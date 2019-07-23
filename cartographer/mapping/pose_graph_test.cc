@@ -24,20 +24,6 @@
 
 namespace cartographer {
 namespace mapping {
-namespace {
-
-TEST(PoseGraph, SerializeConstraint) {
-  proto::PoseGraph::Constraint expected_constraint =
-      testing::CreateFakeConstraint(testing::CreateFakeNode(1, 2),
-                                    testing::CreateFakeSubmap3D(2, 3));
-  ::google::protobuf::RepeatedPtrField<proto::PoseGraph::Constraint>
-      constraint_protos;
-  *constraint_protos.Add() = expected_constraint;
-  PoseGraph::Constraint constraint = FromProto(constraint_protos).front();
-  EXPECT_TRUE(google::protobuf::util::MessageDifferencer::Equals(
-      expected_constraint, ToProto(constraint)));
-}
-
-}  // namespace
+namespace {}  // namespace
 }  // namespace mapping
 }  // namespace cartographer

@@ -42,13 +42,8 @@ class RangeDataCollator {
       const sensor::TimedPointCloudData& timed_point_cloud_data);
 
  private:
-  sensor::TimedPointCloudOriginData CropAndMerge();
-
   const std::set<std::string> expected_sensor_ids_;
-  // Store at most one message for each sensor.
   std::map<std::string, sensor::TimedPointCloudData> id_to_pending_data_;
-  common::Time current_start_ = common::Time::min();
-  common::Time current_end_ = common::Time::min();
 };
 
 }  // namespace mapping

@@ -61,44 +61,17 @@ class Submap2D : public Submap {
                        const RangeDataInserterInterface* range_data_inserter);
   void Finish();
 
+  void SetCircleFeatures(const std::vector<CircleFeature>& circle_features) {
+    circle_features_ = circle_features;
+  }
+  const std::vector<CircleFeature>& CircleFeatures() const {
+    return circle_features_;
+  }
+
  private:
+  std::vector<CircleFeature> circle_features_;
   std::unique_ptr<Grid2D> grid_;
   ValueConversionTables* conversion_tables_;
-};
-
-// The first active submap will be created on the insertion of the first range
-// data. Except during this initialization when no or only one single submap
-// exists, there are always two submaps into which range data is inserted: an
-// old submap that is used for matching, and a new one, which will be used for
-// matching next, that is being initialized.
-//
-// Once a certain number of range data have been inserted, the new submap is
-// considered initialized: the old submap is no longer changed, the "new" submap
-// is now the "old" submap and is used for scan-to-map matching. Moreover, a
-// "new" submap gets created. The "old" submap is forgotten by this object.
-class ActiveSubmaps2D {
- public:
-  explicit ActiveSubmaps2D(const proto::SubmapsOptions2D& options);
-
-  ActiveSubmaps2D(const ActiveSubmaps2D&) = delete;
-  ActiveSubmaps2D& operator=(const ActiveSubmaps2D&) = delete;
-
-  // Inserts 'range_data' into the Submap collection.
-  std::vector<std::shared_ptr<const Submap2D>> InsertRangeData(
-      const sensor::RangeData& range_data);
-
-  std::vector<std::shared_ptr<const Submap2D>> submaps() const;
-
- private:
-  std::unique_ptr<RangeDataInserterInterface> CreateRangeDataInserter();
-  std::unique_ptr<GridInterface> CreateGrid(const Eigen::Vector2f& origin);
-  void FinishSubmap();
-  void AddSubmap(const Eigen::Vector2f& origin);
-
-  const proto::SubmapsOptions2D options_;
-  std::vector<std::shared_ptr<Submap2D>> submaps_;
-  std::unique_ptr<RangeDataInserterInterface> range_data_inserter_;
-  ValueConversionTables conversion_tables_;
 };
 
 }  // namespace mapping

@@ -84,7 +84,7 @@ void PoseExtrapolator::AddPose(const common::Time time,
   UpdateVelocitiesFromPoses();
   AdvanceImuTracker(time, imu_tracker_.get());
   TrimImuData();
-  TrimOdometryData();
+  //  TrimOdometryData();
   odometry_imu_tracker_ = absl::make_unique<ImuTracker>(*imu_tracker_);
   extrapolation_imu_tracker_ = absl::make_unique<ImuTracker>(*imu_tracker_);
 }
@@ -101,6 +101,10 @@ void PoseExtrapolator::AddOdometryData(
   CHECK(timed_pose_queue_.empty() ||
         odometry_data.time >= timed_pose_queue_.back().time);
   odometry_data_.push_back(odometry_data);
+
+  while (odometry_data_.size() > 1000) odometry_data_.pop_front();
+
+  /*
   TrimOdometryData();
   if (odometry_data_.size() < 2) {
     return;
@@ -130,6 +134,7 @@ void PoseExtrapolator::AddOdometryData(
   linear_velocity_from_odometry_ =
       orientation_at_newest_odometry_time *
       linear_velocity_in_tracking_frame_at_newest_odometry_time;
+  */
 }
 
 transform::Rigid3d PoseExtrapolator::ExtrapolatePose(const common::Time time) {
@@ -140,8 +145,6 @@ transform::Rigid3d PoseExtrapolator::ExtrapolatePose(const common::Time time) {
       cached_extrapolated_pose_ = newest_timed_pose;
       return cached_extrapolated_pose_.pose;
     }
-
-    // new algorithm
 
     // estimate odometry at the last known pose
     transform::Rigid3d reference_odom;
@@ -179,7 +182,19 @@ transform::Rigid3d PoseExtrapolator::ExtrapolatePose(const common::Time time) {
         current_odom = it->pose;
       } else if (it == odometry_data_.end()) {
         auto prev_it = it - 1;
-        current_odom = prev_it->pose;
+        const double t_diff = common::ToSeconds(time - prev_it->time);
+        const Eigen::Quaterniond rot =
+            Eigen::AngleAxisd(t_diff * prev_it->angular_velocity.x(),
+                              Eigen::Vector3d::UnitX()) *
+            Eigen::AngleAxisd(t_diff * prev_it->angular_velocity.y(),
+                              Eigen::Vector3d::UnitY()) *
+            Eigen::AngleAxisd(t_diff * prev_it->angular_velocity.z(),
+                              Eigen::Vector3d::UnitZ());
+        const Eigen::Vector3d current_t =
+            prev_it->pose.translation() +
+            rot * (prev_it->linear_velocity * t_diff);
+        const Eigen::Quaterniond current_r = rot * prev_it->pose.rotation();
+        current_odom = transform::Rigid3d(current_t, current_r);
       } else {
         auto prev_it = it - 1;
         current_odom =

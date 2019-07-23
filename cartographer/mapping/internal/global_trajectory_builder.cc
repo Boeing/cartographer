@@ -76,10 +76,9 @@ class GlobalTrajectoryBuilder : public mapping::TrajectoryBuilderInterface {
               matching_result->insertion_result->insertion_submaps.end())});
     }
     if (local_slam_result_callback_) {
-      local_slam_result_callback_(
-          trajectory_id_, matching_result->time, matching_result->local_pose,
-          std::move(matching_result->range_data_in_local),
-          std::move(insertion_result));
+      local_slam_result_callback_(trajectory_id_, matching_result->time,
+                                  matching_result->local_pose,
+                                  std::move(insertion_result));
     }
   }
 
@@ -138,17 +137,6 @@ std::unique_ptr<TrajectoryBuilderInterface> CreateGlobalTrajectoryBuilder2D(
         local_slam_result_callback) {
   return absl::make_unique<
       GlobalTrajectoryBuilder<LocalTrajectoryBuilder2D, mapping::PoseGraph2D>>(
-      std::move(local_trajectory_builder), trajectory_id, pose_graph,
-      local_slam_result_callback);
-}
-
-std::unique_ptr<TrajectoryBuilderInterface> CreateGlobalTrajectoryBuilder3D(
-    std::unique_ptr<LocalTrajectoryBuilder3D> local_trajectory_builder,
-    const int trajectory_id, mapping::PoseGraph3D* const pose_graph,
-    const TrajectoryBuilderInterface::LocalSlamResultCallback&
-        local_slam_result_callback) {
-  return absl::make_unique<
-      GlobalTrajectoryBuilder<LocalTrajectoryBuilder3D, mapping::PoseGraph3D>>(
       std::move(local_trajectory_builder), trajectory_id, pose_graph,
       local_slam_result_callback);
 }

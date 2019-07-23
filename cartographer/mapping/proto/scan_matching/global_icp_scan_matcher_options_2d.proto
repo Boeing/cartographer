@@ -28,6 +28,8 @@ message GlobalICPScanMatcherOptions2D {
   double min_cluster_distance = 5;
 
   int32 num_local_samples = 6;
+  double local_sample_linear_distance = 7;
+  double local_sample_angular_distance = 8;
 
-  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 7;
+  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 9;
 }

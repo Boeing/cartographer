@@ -23,6 +23,7 @@
 #include "Eigen/Core"
 #include "absl/types/optional.h"
 #include "cartographer/common/time.h"
+#include "cartographer/mapping/feature.h"
 #include "cartographer/mapping/proto/trajectory_node_data.pb.h"
 #include "cartographer/sensor/range_data.h"
 #include "cartographer/transform/rigid_transform.h"
@@ -45,18 +46,14 @@ struct TrajectoryNode {
   struct Data {
     common::Time time;
 
-    // Transform to approximately gravity align the tracking frame as
-    // determined by local SLAM.
-    Eigen::Quaterniond gravity_alignment;
+    // Complete scan
+    sensor::RangeData range_data;
 
-    // Used for loop closure in 2D: voxel filtered returns in the
-    // 'gravity_alignment' frame.
-    sensor::PointCloud filtered_gravity_aligned_point_cloud;
+    // Used for scan matching
+    sensor::PointCloud filtered_point_cloud;
 
-    // Used for loop closure in 3D.
-    sensor::PointCloud high_resolution_point_cloud;
-    sensor::PointCloud low_resolution_point_cloud;
-    Eigen::VectorXf rotational_scan_matcher_histogram;
+    // Features detected in the range_data
+    std::vector<CircleFeature> circle_features;
 
     // The node pose in the local SLAM frame.
     transform::Rigid3d local_pose;

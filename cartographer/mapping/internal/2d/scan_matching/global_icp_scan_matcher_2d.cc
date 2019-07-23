@@ -35,6 +35,11 @@ proto::GlobalICPScanMatcherOptions2D CreateGlobalICPScanMatcherOptions2D(
   options.set_num_local_samples(
       parameter_dictionary->GetInt("num_local_samples"));
 
+  options.set_local_sample_linear_distance(
+      parameter_dictionary->GetDouble("local_sample_linear_distance"));
+  options.set_local_sample_angular_distance(
+      parameter_dictionary->GetDouble("local_sample_angular_distance"));
+
   *options.mutable_icp_options() = scan_matching::CreateICPScanMatcherOptions2D(
       parameter_dictionary->GetDictionary("icp_options").get());
   return options;
@@ -88,11 +93,20 @@ std::vector<Eigen::Array2i> FreeCells(const Grid2D& grid) {
 }
 
 GlobalICPScanMatcher2D::GlobalICPScanMatcher2D(
-    const Grid2D& grid, const proto::GlobalICPScanMatcherOptions2D& options)
+    const Submap2D& submap, const proto::GlobalICPScanMatcherOptions2D& options)
     : options_(options),
-      limits_(grid.limits()),
-      sampler_(grid),
-      icp_solver_(grid, options_.icp_options()) {}
+      limits_(submap.grid()->limits()),
+      sampler_(*submap.grid()),
+      icp_solver_(submap, options_.icp_options()) {
+  CHECK(options_.num_global_samples() > 0);
+  CHECK(options_.num_global_rotations() > 0);
+  CHECK(options_.proposal_max_score() > 0);
+  CHECK(options_.min_cluster_size() > 0);
+  CHECK(options_.min_cluster_distance() > 0);
+  CHECK(options_.num_local_samples() > 0);
+  CHECK(options_.local_sample_linear_distance() > 0);
+  CHECK(options_.local_sample_angular_distance() > 0);
+}
 
 GlobalICPScanMatcher2D::~GlobalICPScanMatcher2D() {}
 
@@ -100,8 +114,12 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
     const transform::Rigid2d pose_estimate,
     const sensor::PointCloud& point_cloud) {
   std::mt19937 gen(42);
-  std::normal_distribution<double> linear_dist(-0.2, 0.2);
-  std::normal_distribution<double> angular_dist(-0.2, 0.2);
+  std::normal_distribution<double> linear_dist(
+      -options_.local_sample_linear_distance(),
+      options_.local_sample_linear_distance());
+  std::normal_distribution<double> angular_dist(
+      -options_.local_sample_angular_distance(),
+      options_.local_sample_angular_distance());
 
   const double initial_theta = pose_estimate.rotation().smallestAngle();
   const auto initial_roation = transform::Rigid3f::Rotation(Eigen::AngleAxisf(
@@ -139,7 +157,7 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
           sample_pose.y + static_cast<double>(scan_data[p].position.y());
       icp_solver_.kdtree().kdtree->findNeighbors(result_set, &query_pt[0],
                                                  nanoflann::SearchParams(10));
-      sample_pose.score += out_dist_sqr;
+      sample_pose.score += std::sqrt(out_dist_sqr);
     }
     sample_pose.score /= point_cloud.size();
 
@@ -150,7 +168,7 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
 
   int i = 0;
   while (!samples.empty()) {
-    if (samples.top().score > 1.0) break;
+    if (samples.top().score > options_.proposal_max_score()) break;
     result.poses.push_back(samples.top());
     samples.pop();
     ++i;
@@ -195,7 +213,7 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
                       static_cast<double>(scan.scan_data[p].position.y());
         icp_solver_.kdtree().kdtree->findNeighbors(result_set, &query_pt[0],
                                                    nanoflann::SearchParams(10));
-        sample_pose.score += out_dist_sqr;
+        sample_pose.score += std::sqrt(out_dist_sqr);
       }
       sample_pose.score /= scan.scan_data.size();
 
@@ -243,7 +261,7 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
         kdtree.radiusSearch(&query_pt[0], options_.min_cluster_distance(),
                             ret_matches, nanoflann::SearchParams());
 
-    if (num_matches < static_cast<size_t>(options_.min_cluster_size())) {
+    if (num_matches + 1 < static_cast<size_t>(options_.min_cluster_size())) {
       labels[i] = NOISE;
       continue;
     }
@@ -277,7 +295,8 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
             &sub_query_pt[0], options_.min_cluster_distance(), sub_ret_matches,
             nanoflann::SearchParams());
 
-        if (sub_num_matches > options_.min_cluster_distance()) {
+        if (static_cast<int>(sub_num_matches) + 1 >
+            options_.min_cluster_size()) {
           for (const auto& match : sub_ret_matches)
             ret_matches.push_back(match);
         }

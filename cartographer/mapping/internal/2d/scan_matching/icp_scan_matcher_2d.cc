@@ -1,4 +1,5 @@
 #include "cartographer/mapping/internal/2d/scan_matching/icp_scan_matcher_2d.h"
+#include "cartographer/mapping/internal/2d/scan_matching/ceres_scan_matcher_2d.h"
 
 #include <utility>
 #include <vector>
@@ -7,6 +8,8 @@
 #include "cartographer/common/ceres_solver_options.h"
 #include "cartographer/common/lua_parameter_dictionary.h"
 #include "cartographer/mapping/2d/grid_2d.h"
+#include "cartographer/mapping/2d/probability_grid.h"
+#include "cartographer/mapping/internal/2d/scan_features/circle_detector_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/rotation_delta_cost_functor_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/translation_delta_cost_functor_2d.h"
 #include "cartographer/transform/transform.h"
@@ -17,11 +20,53 @@ namespace cartographer {
 namespace mapping {
 namespace scan_matching {
 
+namespace {
+
+class StaticCost {
+ public:
+  explicit StaticCost(const double cost) : cost_(cost) {}
+
+  template <typename T>
+  bool operator()(const T* const, T* residual) const {
+    residual[0] = T(cost_);
+    residual[1] = T(cost_);
+    return true;
+  }
+
+ private:
+  StaticCost(const StaticCost&) = delete;
+  StaticCost& operator=(const StaticCost&) = delete;
+
+  const double cost_;
+};
+
+CircleFeatureIndex CreateIndexForCircleFeatures(
+    const std::vector<CircleFeature>& circle_features) {
+  CircleFeatureIndex index;
+  index.feature_set.data = circle_features;
+  index.kdtree.reset(new CircleFeatureKDTree(
+      3, index.feature_set, nanoflann::KDTreeSingleIndexAdaptorParams(10)));
+  index.kdtree->buildIndex();
+  return index;
+}
+
+}  // namespace
+
 proto::ICPScanMatcherOptions2D CreateICPScanMatcherOptions2D(
     common::LuaParameterDictionary* const parameter_dictionary) {
   proto::ICPScanMatcherOptions2D options;
-  options.set_nn_huber_loss(parameter_dictionary->GetDouble("nn_huber_loss"));
-  options.set_pp_huber_loss(parameter_dictionary->GetDouble("pp_huber_loss"));
+  options.set_nearest_neighbour_point_huber_loss(
+      parameter_dictionary->GetDouble("nearest_neighbour_point_huber_loss"));
+  options.set_nearest_neighbour_feature_huber_loss(
+      parameter_dictionary->GetDouble("nearest_neighbour_feature_huber_loss"));
+  options.set_point_pair_point_huber_loss(
+      parameter_dictionary->GetDouble("point_pair_point_huber_loss"));
+  options.set_point_pair_feature_huber_loss(
+      parameter_dictionary->GetDouble("point_pair_feature_huber_loss"));
+  options.set_unmatched_feature_cost(
+      parameter_dictionary->GetDouble("unmatched_feature_cost"));
+  options.set_point_weight(parameter_dictionary->GetDouble("point_weight"));
+  options.set_feature_weight(parameter_dictionary->GetDouble("feature_weight"));
   return options;
 }
 
@@ -35,36 +80,75 @@ ceres::Solver::Options CreateCeresSolverOptions() {
 }
 
 ICPScanMatcher2D::ICPScanMatcher2D(
-    const Grid2D& grid, const proto::ICPScanMatcherOptions2D& options)
+    const Submap2D& submap, const proto::ICPScanMatcherOptions2D& options)
     : options_(options),
       ceres_solver_options_(CreateCeresSolverOptions()),
-      limits_(grid.limits()),
-      kdtree_(CreateRealIndexForGrid(grid)) {}
+      limits_(submap.grid()->limits()),
+      kdtree_(CreateRealIndexForGrid(*submap.grid())),
+      circle_feature_index_(
+          CreateIndexForCircleFeatures(submap.CircleFeatures())) {
+  CHECK(options_.feature_weight() >= 0);
+  CHECK(options_.point_weight() >= 0);
+  CHECK(options_.feature_weight() + options_.point_weight() > 0);
+}
 
 ICPScanMatcher2D::~ICPScanMatcher2D() {}
 
 ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
     const transform::Rigid2d& initial_pose_estimate,
-    const sensor::PointCloud& point_cloud) const {
+    const sensor::PointCloud& point_cloud,
+    const std::vector<CircleFeature>& features) const {
   double ceres_pose_estimate[3] = {
       initial_pose_estimate.translation().x(),
       initial_pose_estimate.translation().y(),
       initial_pose_estimate.rotation().smallestAngle()};
   ceres::Problem problem;
 
+  for (size_t i = 0; i < features.size(); ++i) {
+    if (circle_feature_index_.feature_set.data.empty()) {
+      // Add a fixed cost for un-matched features
+      auto cost_fn = new StaticCost(
+          options_.unmatched_feature_cost() * options_.feature_weight() /
+          std::sqrt(static_cast<double>(features.size())));
+      auto auto_diff =
+          new ceres::AutoDiffCostFunction<StaticCost, 2, 3>(cost_fn);
+      problem.AddResidualBlock(
+          auto_diff,
+          new ceres::HuberLoss(options_.nearest_neighbour_feature_huber_loss()),
+          ceres_pose_estimate);
+    } else {
+      auto cost_fn = new NearestFeatureCostFunction2D(
+          options_.feature_weight() /
+              std::sqrt(static_cast<double>(features.size())),
+          features[i], *(circle_feature_index_.kdtree));
+      auto numeric_diff =
+          new ceres::NumericDiffCostFunction<NearestFeatureCostFunction2D,
+                                             ceres::CENTRAL, 2, 3>(cost_fn);
+      problem.AddResidualBlock(
+          numeric_diff,
+          new ceres::HuberLoss(options_.nearest_neighbour_feature_huber_loss()),
+          ceres_pose_estimate);
+    }
+  }
+
+  CHECK(!kdtree_.cells.cells.empty());
+
   for (size_t i = 0; i < point_cloud.size(); ++i) {
     const Eigen::Vector2d point(point_cloud[i].position.x(),
                                 point_cloud[i].position.y());
 
-    auto cost_fn =
-        new SingleNearestNeighbourCostFunction2D(point, *kdtree_.kdtree);
+    auto cost_fn = new SingleNearestNeighbourCostFunction2D(
+        options_.point_weight() /
+            std::sqrt(static_cast<double>(point_cloud.size())),
+        point, *kdtree_.kdtree);
     auto numeric_diff =
         new ceres::NumericDiffCostFunction<SingleNearestNeighbourCostFunction2D,
                                            ceres::CENTRAL, 2, 3>(cost_fn);
 
-    problem.AddResidualBlock(numeric_diff,
-                             new ceres::HuberLoss(options_.nn_huber_loss()),
-                             ceres_pose_estimate);
+    problem.AddResidualBlock(
+        numeric_diff,
+        new ceres::HuberLoss(options_.nearest_neighbour_point_huber_loss()),
+        ceres_pose_estimate);
   }
 
   Result result;
@@ -93,9 +177,36 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
       kdtree_.kdtree->findNeighbors(result_set, &query_pt[0],
                                     nanoflann::SearchParams(10));
 
-      result.pairs.push_back({i,
+      result.pairs.push_back({world,
                               {kdtree_.cells.cells[ret_index].x,
                                kdtree_.cells.cells[ret_index].y}});
+    }
+  }
+
+  if (!circle_feature_index_.feature_set.data.empty()) {
+    size_t ret_index;
+    float out_dist_sqr;
+    float query_pt[3];
+    nanoflann::KNNResultSet<float> result_set(1);
+    for (size_t i = 0; i < features.size(); ++i) {
+      const Eigen::Vector2d fp(features[i].keypoint.position.x(),
+                               features[i].keypoint.position.y());
+      const auto world = result.pose_estimate * fp;
+
+      result_set.init(&ret_index, &out_dist_sqr);
+
+      query_pt[0] = world[0];
+      query_pt[1] = world[1];
+      query_pt[2] = features[i].fdescriptor.radius;
+
+      circle_feature_index_.kdtree->findNeighbors(result_set, &query_pt[0],
+                                                  nanoflann::SearchParams(10));
+
+      result.pairs.push_back({world,
+                              {circle_feature_index_.feature_set.data[ret_index]
+                                   .keypoint.position.x(),
+                               circle_feature_index_.feature_set.data[ret_index]
+                                   .keypoint.position.y()}});
     }
   }
 
@@ -104,49 +215,116 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
 
 ICPScanMatcher2D::Result ICPScanMatcher2D::MatchPointPair(
     const transform::Rigid2d& initial_pose_estimate,
-    const sensor::PointCloud& point_cloud) const {
+    const sensor::PointCloud& point_cloud,
+    const std::vector<CircleFeature>& features) const {
   double ceres_pose_estimate[3] = {
       initial_pose_estimate.translation().x(),
       initial_pose_estimate.translation().y(),
       initial_pose_estimate.rotation().smallestAngle()};
   ceres::Problem problem;
 
-  double occupied_space_weight = 1.0;
-
-  const size_t num_results = 1;
-  size_t ret_index;
-  double out_dist_sqr;
-  double query_pt[2];
-  nanoflann::KNNResultSet<double> result_set(num_results);
-
   Result result;
 
-  for (size_t i = 0; i < point_cloud.size(); ++i) {
-    const Eigen::Vector2d point(point_cloud[i].position.x(),
-                                point_cloud[i].position.y());
-    const auto world = initial_pose_estimate * point;
+  {
+    const size_t num_results = 1;
+    size_t ret_index;
+    float out_dist_sqr;
+    float query_pt[3];
+    nanoflann::KNNResultSet<float> result_set(num_results);
 
-    result_set.init(&ret_index, &out_dist_sqr);
+    for (size_t i = 0; i < features.size(); ++i) {
+      if (circle_feature_index_.feature_set.data.empty()) {
+        // Add a fixed cost for un-matched features
+        auto cost_fn = new StaticCost(
+            options_.unmatched_feature_cost() * options_.feature_weight() /
+            std::sqrt(static_cast<double>(features.size())));
+        auto auto_diff =
+            new ceres::AutoDiffCostFunction<StaticCost, 2, 3>(cost_fn);
+        problem.AddResidualBlock(
+            auto_diff,
+            new ceres::HuberLoss(options_.point_pair_feature_huber_loss()),
+            ceres_pose_estimate);
+      } else {
+        const Eigen::Vector2d fp(features[i].keypoint.position.x(),
+                                 features[i].keypoint.position.y());
+        const auto world = initial_pose_estimate * fp;
 
-    query_pt[0] = world[0];
-    query_pt[1] = world[1];
+        result_set.init(&ret_index, &out_dist_sqr);
 
-    kdtree_.kdtree->findNeighbors(result_set, &query_pt[0],
-                                  nanoflann::SearchParams(10));
+        query_pt[0] = world[0];
+        query_pt[1] = world[1];
+        query_pt[2] = features[i].fdescriptor.radius;
 
-    auto cost_fn = new PointPairCostFunction2D(
-        occupied_space_weight, point,
-        {kdtree_.cells.cells[ret_index].x, kdtree_.cells.cells[ret_index].y});
-    auto auto_diff =
-        new ceres::AutoDiffCostFunction<PointPairCostFunction2D, 2, 3>(cost_fn);
+        circle_feature_index_.kdtree->findNeighbors(
+            result_set, &query_pt[0], nanoflann::SearchParams(10));
 
-    problem.AddResidualBlock(auto_diff,
-                             new ceres::HuberLoss(options_.pp_huber_loss()),
-                             ceres_pose_estimate);
+        auto cost_fn = new PointPairCostFunction2D(
+            options_.feature_weight() /
+                std::sqrt(static_cast<double>(features.size())),
+            fp,
+            {circle_feature_index_.feature_set.data[ret_index]
+                 .keypoint.position.x(),
+             circle_feature_index_.feature_set.data[ret_index]
+                 .keypoint.position.y()});
+        auto auto_diff =
+            new ceres::AutoDiffCostFunction<PointPairCostFunction2D, 2, 3>(
+                cost_fn);
 
-    result.pairs.push_back(
-        {i,
-         {kdtree_.cells.cells[ret_index].x, kdtree_.cells.cells[ret_index].y}});
+        problem.AddResidualBlock(
+            auto_diff,
+            new ceres::HuberLoss(options_.point_pair_feature_huber_loss()),
+            ceres_pose_estimate);
+
+        result.pairs.push_back(
+            {world,
+             {circle_feature_index_.feature_set.data[ret_index]
+                  .keypoint.position.x(),
+              circle_feature_index_.feature_set.data[ret_index]
+                  .keypoint.position.y()}});
+      }
+    }
+  }
+
+  CHECK(!kdtree_.cells.cells.empty());
+
+  {
+    const size_t num_results = 1;
+    size_t ret_index;
+    double out_dist_sqr;
+    double query_pt[2];
+    nanoflann::KNNResultSet<double> result_set(num_results);
+
+    for (size_t i = 0; i < point_cloud.size(); ++i) {
+      const Eigen::Vector2d point(point_cloud[i].position.x(),
+                                  point_cloud[i].position.y());
+      const auto world = initial_pose_estimate * point;
+
+      result_set.init(&ret_index, &out_dist_sqr);
+
+      query_pt[0] = world[0];
+      query_pt[1] = world[1];
+
+      kdtree_.kdtree->findNeighbors(result_set, &query_pt[0],
+                                    nanoflann::SearchParams(10));
+
+      auto cost_fn = new PointPairCostFunction2D(
+          options_.point_weight() /
+              std::sqrt(static_cast<double>(point_cloud.size())),
+          point,
+          {kdtree_.cells.cells[ret_index].x, kdtree_.cells.cells[ret_index].y});
+      auto auto_diff =
+          new ceres::AutoDiffCostFunction<PointPairCostFunction2D, 2, 3>(
+              cost_fn);
+
+      problem.AddResidualBlock(
+          auto_diff,
+          new ceres::HuberLoss(options_.point_pair_point_huber_loss()),
+          ceres_pose_estimate);
+
+      result.pairs.push_back({world,
+                              {kdtree_.cells.cells[ret_index].x,
+                               kdtree_.cells.cells[ret_index].y}});
+    }
   }
 
   ceres::Solve(ceres_solver_options_, &problem, &result.summary);

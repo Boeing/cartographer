@@ -59,7 +59,6 @@ class TrajectoryBuilderInterface {
   using LocalSlamResultCallback =
       std::function<void(int /* trajectory ID */, common::Time,
                          transform::Rigid3d /* local pose estimate */,
-                         sensor::RangeData /* in local frame */,
                          std::unique_ptr<const InsertionResult>)>;
 
   struct SensorId {

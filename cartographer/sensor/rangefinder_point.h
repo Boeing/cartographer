@@ -30,6 +30,7 @@ namespace sensor {
 // Stores 3D position of a point observed by a rangefinder sensor.
 struct RangefinderPoint {
   Eigen::Vector3f position;
+  float intensity;
 };
 
 // Stores 3D position of a point with its relative measurement time.
@@ -37,6 +38,7 @@ struct RangefinderPoint {
 struct TimedRangefinderPoint {
   Eigen::Vector3f position;
   float time;
+  float intensity;
 };
 
 template <class T>
@@ -67,7 +69,8 @@ inline bool operator==(const TimedRangefinderPoint& lhs,
 
 inline RangefinderPoint FromProto(
     const proto::RangefinderPoint& rangefinder_point_proto) {
-  return {transform::ToEigen(rangefinder_point_proto.position())};
+  return {transform::ToEigen(rangefinder_point_proto.position()),
+          rangefinder_point_proto.intensity()};
 }
 
 inline proto::RangefinderPoint ToProto(
@@ -80,7 +83,8 @@ inline proto::RangefinderPoint ToProto(
 inline TimedRangefinderPoint FromProto(
     const proto::TimedRangefinderPoint& timed_rangefinder_point_proto) {
   return {transform::ToEigen(timed_rangefinder_point_proto.position()),
-          timed_rangefinder_point_proto.time()};
+          timed_rangefinder_point_proto.time(),
+          timed_rangefinder_point_proto.intensity()};
 }
 
 inline proto::TimedRangefinderPoint ToProto(
@@ -94,12 +98,12 @@ inline proto::TimedRangefinderPoint ToProto(
 
 inline RangefinderPoint ToRangefinderPoint(
     const TimedRangefinderPoint& timed_rangefinder_point) {
-  return {timed_rangefinder_point.position};
+  return {timed_rangefinder_point.position, timed_rangefinder_point.intensity};
 }
 
 inline TimedRangefinderPoint ToTimedRangefinderPoint(
     const RangefinderPoint& rangefinder_point, const float time) {
-  return {rangefinder_point.position, time};
+  return {rangefinder_point.position, time, 0.f};
 }
 
 }  // namespace sensor

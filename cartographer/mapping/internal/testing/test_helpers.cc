@@ -80,18 +80,6 @@ GenerateFakeRangeMeasurements(const Eigen::Vector3f& translation,
   return measurements;
 }
 
-proto::Submap CreateFakeSubmap3D(int trajectory_id, int submap_index,
-                                 bool finished) {
-  proto::Submap proto;
-  proto.mutable_submap_id()->set_trajectory_id(trajectory_id);
-  proto.mutable_submap_id()->set_submap_index(submap_index);
-  proto.mutable_submap_3d()->set_num_range_data(1);
-  *proto.mutable_submap_3d()->mutable_local_pose() =
-      transform::ToProto(transform::Rigid3d::Identity());
-  proto.mutable_submap_3d()->set_finished(finished);
-  return proto;
-}
-
 proto::Node CreateFakeNode(int trajectory_id, int node_index) {
   proto::Node proto;
   proto.mutable_node_id()->set_trajectory_id(trajectory_id);
@@ -158,11 +146,7 @@ void AddToProtoGraph(const proto::Submap& submap_data,
       submap_data.submap_id().trajectory_id(), pose_graph);
   auto* submap = trajectory->add_submap();
   submap->set_submap_index(submap_data.submap_id().submap_index());
-  if (submap_data.has_submap_2d()) {
-    *submap->mutable_pose() = submap_data.submap_2d().local_pose();
-  } else {
-    *submap->mutable_pose() = submap_data.submap_3d().local_pose();
-  }
+  *submap->mutable_pose() = submap_data.submap_2d().local_pose();
 }
 
 void AddToProtoGraph(const proto::PoseGraph::Constraint& constraint,

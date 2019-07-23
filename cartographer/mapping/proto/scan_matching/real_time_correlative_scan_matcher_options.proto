@@ -17,12 +17,10 @@ syntax = "proto3";
 package cartographer.mapping.scan_matching.proto;
 
 message RealTimeCorrelativeScanMatcherOptions {
-  // Minimum linear search window in which the best possible scan alignment
-  // will be found.
+  // Minimum linear search window in which the best possible scan alignment will be found.
   double linear_search_window = 1;
 
-  // Minimum angular search window in which the best possible scan alignment
-  // will be found.
+  // Minimum angular search window in which the best possible scan alignment will be found.
   double angular_search_window = 2;
 
   // Weights applied to each part of the score.

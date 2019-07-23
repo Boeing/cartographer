@@ -67,6 +67,15 @@ class ThreadPool : public ThreadPoolInterface {
   std::weak_ptr<Task> Schedule(std::unique_ptr<Task> task)
       LOCKS_EXCLUDED(mutex_) override;
 
+  size_t TaskQueueSize() {
+    absl::MutexLock locker(&mutex_);
+    return task_queue_.size();
+  }
+  size_t TasksNotReadySize() {
+    absl::MutexLock locker(&mutex_);
+    return tasks_not_ready_.size();
+  }
+
  private:
   void DoWork();
 

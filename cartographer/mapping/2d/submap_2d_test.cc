@@ -15,6 +15,7 @@
  */
 
 #include "cartographer/mapping/2d/submap_2d.h"
+#include "cartographer/mapping/2d/active_submaps_2d.h"
 
 #include <map>
 #include <memory>
@@ -106,7 +107,6 @@ TEST(Submap2DTest, ToFromProto) {
   const proto::Submap proto =
       expected.ToProto(true /* include_probability_grid_data */);
   EXPECT_TRUE(proto.has_submap_2d());
-  EXPECT_FALSE(proto.has_submap_3d());
   const auto actual = Submap2D(proto.submap_2d(), &conversion_tables);
   EXPECT_TRUE(expected.local_pose().translation().isApprox(
       actual.local_pose().translation(), 1e-6));

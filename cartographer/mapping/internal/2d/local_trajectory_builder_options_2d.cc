@@ -25,6 +25,16 @@
 namespace cartographer {
 namespace mapping {
 
+proto::CircleFeatureOptions CreateCircleFeatureOptions(
+    common::LuaParameterDictionary* const parameter_dictionary) {
+  proto::CircleFeatureOptions options;
+  const auto& ref = parameter_dictionary->GetDictionary("detect_radii")
+                        ->GetArrayValuesAsDoubles();
+  options.mutable_detect_radii()->Reserve(ref.size());
+  for (const auto& d : ref) options.add_detect_radii(d);
+  return options;
+}
+
 proto::LocalTrajectoryBuilderOptions2D CreateLocalTrajectoryBuilderOptions2D(
     common::LuaParameterDictionary* const parameter_dictionary) {
   proto::LocalTrajectoryBuilderOptions2D options;
@@ -36,6 +46,10 @@ proto::LocalTrajectoryBuilderOptions2D CreateLocalTrajectoryBuilderOptions2D(
       parameter_dictionary->GetDouble("missing_data_ray_length"));
   options.set_num_accumulated_range_data(
       parameter_dictionary->GetInt("num_accumulated_range_data"));
+
+  *options.mutable_circle_feature_options() = CreateCircleFeatureOptions(
+      parameter_dictionary->GetDictionary("circle_feature_options").get());
+
   options.set_voxel_filter_size(
       parameter_dictionary->GetDouble("voxel_filter_size"));
   options.set_use_online_correlative_scan_matching(
@@ -43,11 +57,6 @@ proto::LocalTrajectoryBuilderOptions2D CreateLocalTrajectoryBuilderOptions2D(
   *options.mutable_adaptive_voxel_filter_options() =
       sensor::CreateAdaptiveVoxelFilterOptions(
           parameter_dictionary->GetDictionary("adaptive_voxel_filter").get());
-  *options.mutable_loop_closure_adaptive_voxel_filter_options() =
-      sensor::CreateAdaptiveVoxelFilterOptions(
-          parameter_dictionary
-              ->GetDictionary("loop_closure_adaptive_voxel_filter")
-              .get());
   *options.mutable_real_time_correlative_scan_matcher_options() =
       mapping::scan_matching::CreateRealTimeCorrelativeScanMatcherOptions(
           parameter_dictionary

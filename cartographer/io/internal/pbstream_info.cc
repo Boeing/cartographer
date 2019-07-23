@@ -65,12 +65,8 @@ void Run(const std::string& pbstream_filename, bool all_debug_strings) {
       {SerializedData::kLandmarkData, "landmark_data"},
   };
   // Initialize so zero counts of these are also reported.
-  std::map<std::string, int> data_counts = {
-      {"submap_2d", 0},
-      {"submap_2d_grid", 0},
-      {"submap_3d", 0},
-      {"submap_3d_high_resolution_hybrid_grid", 0},
-  };
+  std::map<std::string, int> data_counts = {{"submap_2d", 0},
+                                            {"submap_2d_grid", 0}};
   SerializedData proto;
   while (deserializer.ReadNextSerializedData(&proto)) {
     if (all_debug_strings) {
@@ -88,14 +84,6 @@ void Run(const std::string& pbstream_filename, bool all_debug_strings) {
         ++data_counts["submap_2d"];
         if (proto.mutable_submap()->mutable_submap_2d()->has_grid()) {
           ++data_counts["submap_2d_grid"];
-        }
-      }
-      if (proto.mutable_submap()->has_submap_3d()) {
-        ++data_counts["submap_3d"];
-        if (proto.mutable_submap()
-                ->mutable_submap_3d()
-                ->has_high_resolution_hybrid_grid()) {
-          ++data_counts["submap_3d_high_resolution_hybrid_grid"];
         }
       }
     }
