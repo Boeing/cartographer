@@ -33,7 +33,6 @@
 #include "cartographer/common/thread_pool.h"
 #include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/ceres_scan_matcher_2d.h"
-#include "cartographer/mapping/internal/2d/scan_matching/fast_correlative_scan_matcher_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/global_icp_scan_matcher_2d.h"
 #include "cartographer/mapping/pose_graph_interface.h"
 #include "cartographer/mapping/proto/pose_graph/constraint_builder_options.pb.h"
@@ -69,26 +68,16 @@ class ConstraintBuilder2D {
   ConstraintBuilder2D(const ConstraintBuilder2D&) = delete;
   ConstraintBuilder2D& operator=(const ConstraintBuilder2D&) = delete;
 
-  // Schedules exploring a new constraint between 'submap' identified by
-  // 'submap_id', and the 'compressed_point_cloud' for 'node_id'. The
-  // 'initial_relative_pose' is relative to the 'submap'.
-  //
-  // The pointees of 'submap' and 'compressed_point_cloud' must stay valid until
-  // all computations are finished.
-  void MaybeAddConstraint(const SubmapId& submap_id, const Submap2D* submap,
-                          const NodeId& node_id,
-                          const TrajectoryNode::Data* const constant_data,
-                          const transform::Rigid2d& initial_relative_pose);
+  void LocalSearchForConstraint(const NodeId node_id,
+                                const SubmapId submap_id,
+                                const transform::Rigid2d& initial_relative_pose,
+                                const Submap2D& submap,
+                                const TrajectoryNode::Data& constant_data);
 
-  // Schedules exploring a new constraint between 'submap' identified by
-  // 'submap_id' and the 'compressed_point_cloud' for 'node_id'.
-  // This performs full-submap matching.
-  //
-  // The pointees of 'submap' and 'compressed_point_cloud' must stay valid until
-  // all computations are finished.
-  void MaybeAddGlobalConstraint(
-      const SubmapId& submap_id, const Submap2D* submap, const NodeId& node_id,
-      const TrajectoryNode::Data* const constant_data);
+  void GlobalSearchForConstraint(const NodeId node_id,
+                                 const SubmapId submap_id,
+                                 const Submap2D& submap,
+                                 const TrajectoryNode::Data& constant_data);
 
   // Must be called after all computations related to one node have been added.
   void NotifyEndOfNode();
@@ -108,28 +97,27 @@ class ConstraintBuilder2D {
 
  private:
   struct SubmapScanMatcher {
-    const Grid2D* grid = nullptr;
-    std::unique_ptr<scan_matching::FastCorrelativeScanMatcher2D>
-        fast_correlative_scan_matcher;
-    std::unique_ptr<scan_matching::GlobalICPScanMatcher2D>
-        global_icp_scan_matcher;
+    const Submap2D& submap;
+    std::unique_ptr<scan_matching::GlobalICPScanMatcher2D> global_icp_scan_matcher;
     std::weak_ptr<common::Task> creation_task_handle;
   };
 
   // The returned 'grid' and 'fast_correlative_scan_matcher' must only be
   // accessed after 'creation_task_handle' has completed.
   const SubmapScanMatcher* DispatchScanMatcherConstruction(
-      const SubmapId& submap_id, const Grid2D* grid)
+      const SubmapId& submap_id, const Submap2D& submap)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Runs in a background thread and does computations for an additional
   // constraint, assuming 'submap' and 'compressed_point_cloud' do not change
   // anymore. As output, it may create a new Constraint in 'constraint'.
-  void ComputeConstraint(const SubmapId& submap_id, const Submap2D* submap,
-                         const NodeId& node_id, bool match_full_submap,
-                         const TrajectoryNode::Data* const constant_data,
-                         const transform::Rigid2d& initial_relative_pose,
-                         const SubmapScanMatcher& submap_scan_matcher,
+  void ComputeConstraint(const NodeId node_id,
+                         const SubmapId submap_id,
+                         const transform::Rigid2d initial_relative_pose,
+                         const Submap2D& submap,
+                         const TrajectoryNode::Data& constant_data,
+                         const bool match_full_submap,
+                         const SubmapScanMatcher* submap_scan_matcher,
                          std::unique_ptr<Constraint>* constraint)
       LOCKS_EXCLUDED(mutex_);
 
@@ -140,8 +128,7 @@ class ConstraintBuilder2D {
   absl::Mutex mutex_;
 
   // 'callback' set by WhenDone().
-  std::unique_ptr<std::function<void(const Result&)>> when_done_
-      GUARDED_BY(mutex_);
+  std::unique_ptr<std::function<void(const Result&)>> when_done_ GUARDED_BY(mutex_);
 
   // TODO(gaschler): Use atomics instead of mutex to access these counters.
   // Number of the node in reaction to which computations are currently
@@ -164,7 +151,6 @@ class ConstraintBuilder2D {
   std::map<SubmapId, SubmapScanMatcher> submap_scan_matchers_
       GUARDED_BY(mutex_);
 
-  common::FixedRatioSampler sampler_;
   scan_matching::CeresScanMatcher2D ceres_scan_matcher_;
 
   // Histogram of scan matcher scores.

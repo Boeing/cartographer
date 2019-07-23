@@ -39,11 +39,6 @@ using PointCloud = std::vector<RangefinderPoint>;
 // third entry is 0.f (and the fourth entry is time).
 using TimedPointCloud = std::vector<TimedRangefinderPoint>;
 
-struct PointCloudWithIntensities {
-  TimedPointCloud points;
-  std::vector<float> intensities;
-};
-
 // Transforms 'point_cloud' according to 'transform'.
 PointCloud TransformPointCloud(const PointCloud& point_cloud,
                                const transform::Rigid3f& transform);

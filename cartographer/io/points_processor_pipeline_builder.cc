@@ -21,15 +21,12 @@
 #include "cartographer/io/counting_points_processor.h"
 #include "cartographer/io/fixed_ratio_sampling_points_processor.h"
 #include "cartographer/io/frame_id_filtering_points_processor.h"
-#include "cartographer/io/hybrid_grid_points_processor.h"
 #include "cartographer/io/intensity_to_color_points_processor.h"
 #include "cartographer/io/min_max_range_filtering_points_processor.h"
 #include "cartographer/io/null_points_processor.h"
-#include "cartographer/io/outlier_removing_points_processor.h"
 #include "cartographer/io/pcd_writing_points_processor.h"
 #include "cartographer/io/ply_writing_points_processor.h"
 #include "cartographer/io/probability_grid_points_processor.h"
-#include "cartographer/io/xray_points_processor.h"
 #include "cartographer/io/xyz_writing_points_processor.h"
 #include "cartographer/mapping/proto/trajectory.pb.h"
 
@@ -84,22 +81,12 @@ void RegisterBuiltInPointsProcessors(
   RegisterPlainPointsProcessor<FixedRatioSamplingPointsProcessor>(builder);
   RegisterPlainPointsProcessor<FrameIdFilteringPointsProcessor>(builder);
   RegisterPlainPointsProcessor<MinMaxRangeFiteringPointsProcessor>(builder);
-  RegisterPlainPointsProcessor<OutlierRemovingPointsProcessor>(builder);
   RegisterPlainPointsProcessor<ColoringPointsProcessor>(builder);
   RegisterPlainPointsProcessor<IntensityToColorPointsProcessor>(builder);
-  RegisterFileWritingPointsProcessor<PcdWritingPointsProcessor>(
-      file_writer_factory, builder);
-  RegisterFileWritingPointsProcessor<PlyWritingPointsProcessor>(
-      file_writer_factory, builder);
-  RegisterFileWritingPointsProcessor<XyzWriterPointsProcessor>(
-      file_writer_factory, builder);
-  RegisterFileWritingPointsProcessor<HybridGridPointsProcessor>(
-      file_writer_factory, builder);
-  RegisterFileWritingPointsProcessorWithTrajectories<XRayPointsProcessor>(
-      trajectories, file_writer_factory, builder);
-  RegisterFileWritingPointsProcessorWithTrajectories<
-      ProbabilityGridPointsProcessor>(trajectories, file_writer_factory,
-                                      builder);
+  RegisterFileWritingPointsProcessor<PcdWritingPointsProcessor>(file_writer_factory, builder);
+  RegisterFileWritingPointsProcessor<PlyWritingPointsProcessor>(file_writer_factory, builder);
+  RegisterFileWritingPointsProcessor<XyzWriterPointsProcessor>(file_writer_factory, builder);
+  RegisterFileWritingPointsProcessorWithTrajectories<ProbabilityGridPointsProcessor>(trajectories, file_writer_factory,builder);
 }
 
 void PointsProcessorPipelineBuilder::Register(const std::string& name,

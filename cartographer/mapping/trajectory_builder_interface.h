@@ -57,9 +57,9 @@ class TrajectoryBuilderInterface {
   // 'sensor::RangeData'. If the data was inserted into a submap, reports the
   // assigned 'NodeId', otherwise 'nullptr' if the data was filtered out.
   using LocalSlamResultCallback =
-      std::function<void(int /* trajectory ID */, common::Time,
+      std::function<void(int /* trajectory ID */,
+                         common::Time,
                          transform::Rigid3d /* local pose estimate */,
-                         sensor::RangeData /* in local frame */,
                          std::unique_ptr<const InsertionResult>)>;
 
   struct SensorId {

@@ -52,11 +52,8 @@ class GlobalTrajectoryBuilder : public mapping::TrajectoryBuilderInterface {
   void AddSensorData(
       const std::string& sensor_id,
       const sensor::TimedPointCloudData& timed_point_cloud_data) override {
-    CHECK(local_trajectory_builder_)
-        << "Cannot add TimedPointCloudData without a LocalTrajectoryBuilder.";
-    std::unique_ptr<typename LocalTrajectoryBuilder::MatchingResult>
-        matching_result = local_trajectory_builder_->AddRangeData(
-            sensor_id, timed_point_cloud_data);
+    CHECK(local_trajectory_builder_) << "Cannot add TimedPointCloudData without a LocalTrajectoryBuilder.";
+    std::unique_ptr<typename LocalTrajectoryBuilder::MatchingResult> matching_result = local_trajectory_builder_->AddRangeData(sensor_id, timed_point_cloud_data);
     if (matching_result == nullptr) {
       // The range data has not been fully accumulated yet.
       return;
@@ -66,20 +63,19 @@ class GlobalTrajectoryBuilder : public mapping::TrajectoryBuilderInterface {
     if (matching_result->insertion_result != nullptr) {
       kLocalSlamInsertionResults->Increment();
       auto node_id = pose_graph_->AddNode(
-          matching_result->insertion_result->constant_data, trajectory_id_,
+          matching_result->insertion_result->constant_data,
+          trajectory_id_,
           matching_result->insertion_result->insertion_submaps);
       CHECK_EQ(node_id.trajectory_id, trajectory_id_);
       insertion_result = absl::make_unique<InsertionResult>(InsertionResult{
-          node_id, matching_result->insertion_result->constant_data,
+          node_id,
+          matching_result->insertion_result->constant_data,
           std::vector<std::shared_ptr<const Submap>>(
               matching_result->insertion_result->insertion_submaps.begin(),
               matching_result->insertion_result->insertion_submaps.end())});
     }
     if (local_slam_result_callback_) {
-      local_slam_result_callback_(
-          trajectory_id_, matching_result->time, matching_result->local_pose,
-          std::move(matching_result->range_data_in_local),
-          std::move(insertion_result));
+      local_slam_result_callback_(trajectory_id_, matching_result->time, matching_result->local_pose, std::move(insertion_result));
     }
   }
 
@@ -138,17 +134,6 @@ std::unique_ptr<TrajectoryBuilderInterface> CreateGlobalTrajectoryBuilder2D(
         local_slam_result_callback) {
   return absl::make_unique<
       GlobalTrajectoryBuilder<LocalTrajectoryBuilder2D, mapping::PoseGraph2D>>(
-      std::move(local_trajectory_builder), trajectory_id, pose_graph,
-      local_slam_result_callback);
-}
-
-std::unique_ptr<TrajectoryBuilderInterface> CreateGlobalTrajectoryBuilder3D(
-    std::unique_ptr<LocalTrajectoryBuilder3D> local_trajectory_builder,
-    const int trajectory_id, mapping::PoseGraph3D* const pose_graph,
-    const TrajectoryBuilderInterface::LocalSlamResultCallback&
-        local_slam_result_callback) {
-  return absl::make_unique<
-      GlobalTrajectoryBuilder<LocalTrajectoryBuilder3D, mapping::PoseGraph3D>>(
       std::move(local_trajectory_builder), trajectory_id, pose_graph,
       local_slam_result_callback);
 }

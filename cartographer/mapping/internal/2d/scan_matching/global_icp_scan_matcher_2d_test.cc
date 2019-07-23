@@ -28,11 +28,12 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   const int cells = side_length / resolution;
 
   ValueConversionTables conversion_tables;
+  auto grid = absl::make_unique<ProbabilityGrid>(MapLimits(resolution, Eigen::Vector2d(side_length, side_length), CellLimits(cells, cells)), &conversion_tables);
+  ProbabilityGrid& probability_grid = *grid;
 
-  ProbabilityGrid probability_grid(
-      MapLimits(resolution, Eigen::Vector2d(side_length, side_length),
-                CellLimits(cells, cells)),
-      &conversion_tables);
+  for (int ii = 0; ii < cells; ++ii)
+    for (int jj = 0; jj < cells; ++jj)
+        probability_grid.SetProbability({ii, jj}, 0.5);
 
   {
     const int box_size_x = cells * 0.8;
@@ -102,13 +103,18 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
       auto r = Eigen::AngleAxisf(-inserted_pose.rotation().angle(),
                                  Eigen::Vector3f::UnitZ()) *
                Eigen::Vector3f{diff.x(), diff.y(), 0.f};
-      unperturbed_point_cloud.push_back({r});
+      unperturbed_point_cloud.push_back({r, 0.f});
     }
   }
 
   proto::ICPScanMatcherOptions2D icp_config;
-  icp_config.set_nn_huber_loss(0.5);
-  icp_config.set_pp_huber_loss(0.5);
+  icp_config.set_nearest_neighbour_point_huber_loss(0.01);
+  icp_config.set_nearest_neighbour_feature_huber_loss(0.01);
+  icp_config.set_point_pair_point_huber_loss(0.01);
+  icp_config.set_point_pair_feature_huber_loss(0.01);
+  icp_config.set_unmatched_feature_cost(1.0);
+  icp_config.set_point_weight(1.0);
+  icp_config.set_feature_weight(2.0);
 
   proto::GlobalICPScanMatcherOptions2D global_icp_config;
   global_icp_config.set_num_global_samples(1e3);
@@ -116,10 +122,15 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   global_icp_config.set_proposal_max_score(1.5);
   global_icp_config.set_min_cluster_size(3);
   global_icp_config.set_min_cluster_distance(1.0);
+  global_icp_config.set_num_local_samples(200);
+  global_icp_config.set_local_sample_linear_distance(0.2);
+  global_icp_config.set_local_sample_angular_distance(0.2);
   *global_icp_config.mutable_icp_options() = icp_config;
 
-  GlobalICPScanMatcher2D global_icp_scan_matcher(probability_grid,
-                                                 global_icp_config);
+  Eigen::Vector2f origin = {0.f, 0.f};
+  Submap2D submap(origin, std::move(grid), &conversion_tables);
+
+  GlobalICPScanMatcher2D global_icp_scan_matcher(submap, global_icp_config);
 
   const auto match_result =
       global_icp_scan_matcher.Match(unperturbed_point_cloud);
@@ -163,11 +174,8 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   for (const auto& pair : icp_result.pairs) {
     cairo_set_source_rgba(cr, 0, 1, 0, 0.5);
     cairo_set_line_width(cr, 1.0);
-    const auto src = probability_grid.limits().GetCellIndex(
-        {actual_tpc[pair.first].position.x(),
-         actual_tpc[pair.first].position.y()});
-    const auto dst =
-        probability_grid.limits().GetCellIndex(pair.second.cast<float>());
+    const auto src = probability_grid.limits().GetCellIndex(pair.first.cast<float>());
+    const auto dst = probability_grid.limits().GetCellIndex(pair.second.cast<float>());
     cairo_move_to(cr, src.x(), src.y());
     cairo_line_to(cr, dst.x(), dst.y());
     cairo_stroke(cr);

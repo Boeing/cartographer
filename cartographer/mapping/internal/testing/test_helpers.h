@@ -39,9 +39,6 @@ GenerateFakeRangeMeasurements(const Eigen::Vector3f& translation,
                               double duration, double time_step,
                               const transform::Rigid3f& local_to_global);
 
-proto::Submap CreateFakeSubmap3D(int trajectory_id = 1, int submap_index = 1,
-                                 bool finished = true);
-
 proto::Node CreateFakeNode(int trajectory_id = 1, int node_index = 1);
 
 proto::PoseGraph::Constraint CreateFakeConstraint(const proto::Node& node,

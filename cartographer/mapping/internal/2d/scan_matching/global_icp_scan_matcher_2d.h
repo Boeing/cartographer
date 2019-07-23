@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Eigen/Core"
+#include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/mapping/2d/grid_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/icp_scan_matcher_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/nearest_neighbour_cost_function_2d.h"
@@ -41,8 +42,7 @@ class EmptySpaceSampler {
 
 class GlobalICPScanMatcher2D {
  public:
-  explicit GlobalICPScanMatcher2D(
-      const Grid2D& grid, const proto::GlobalICPScanMatcherOptions2D& options);
+  explicit GlobalICPScanMatcher2D(const Submap2D& submap, const proto::GlobalICPScanMatcherOptions2D& options);
   virtual ~GlobalICPScanMatcher2D();
 
   GlobalICPScanMatcher2D(const GlobalICPScanMatcher2D&) = delete;
@@ -87,35 +87,7 @@ class GlobalICPScanMatcher2D {
     }
   };
 
-  //  template <class T, class DataSource, typename _DistanceType = T>
-  //  struct SO2_Adaptor
-  //  {
-  //    typedef T ElementType;
-  //    typedef _DistanceType DistanceType;
 
-  //    const DataSource &data_source;
-
-  //    SO2_Adaptor(const DataSource &_data_source) : data_source(_data_source)
-  //    {}
-
-  //    inline DistanceType evalMetric(const T *a, const size_t b_idx,
-  //                                   size_t size) const {
-  //      return accum_dist(a[size - 1], data_source.kdtree_get_pt(b_idx, size -
-  //      1),
-  //                        size - 1);
-  //    }
-
-  //    /** Note: this assumes that input angles are already in the range
-  //    [-pi,pi] */ template <typename U, typename V> inline DistanceType
-  //    accum_dist(const U a, const V b, const size_t) const {
-  //      DistanceType result = DistanceType(), PI =
-  //      nanoflann::pi_const<DistanceType>(); result = b - a; if (result > PI)
-  //        result -= 2 * PI;
-  //      else if (result < -PI)
-  //        result += 2 * PI;
-  //      return result;
-  //    }
-  //  };
 
   typedef nanoflann::KDTreeSingleIndexAdaptor<
       nanoflann::L2_Simple_Adaptor<double, ClusterData, double>, ClusterData, 3>

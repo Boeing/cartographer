@@ -22,6 +22,10 @@ import "cartographer/mapping/proto/2d/submaps_options_2d.proto";
 import "cartographer/mapping/proto/scan_matching/ceres_scan_matcher_options_2d.proto";
 import "cartographer/mapping/proto/scan_matching/real_time_correlative_scan_matcher_options.proto";
 
+message CircleFeatureOptions {
+  repeated float detect_radii = 1;
+}
+
 message LocalTrajectoryBuilderOptions2D {
   // Rangefinder points outside these ranges will be dropped.
   float min_range = 14;
@@ -36,17 +40,14 @@ message LocalTrajectoryBuilderOptions2D {
   // to use for scan matching.
   int32 num_accumulated_range_data = 19;
 
+  CircleFeatureOptions circle_feature_options = 4;
+
   // Voxel filter that gets applied to the range data immediately after
   // cropping.
   float voxel_filter_size = 3;
 
   // Voxel filter used to compute a sparser point cloud for matching.
   sensor.proto.AdaptiveVoxelFilterOptions adaptive_voxel_filter_options = 6;
-
-  // Voxel filter used to compute a sparser point cloud for finding loop
-  // closures.
-  sensor.proto.AdaptiveVoxelFilterOptions
-      loop_closure_adaptive_voxel_filter_options = 20;
 
   // Whether to solve the online scan matching first using the correlative scan
   // matcher to generate a good starting point for Ceres.

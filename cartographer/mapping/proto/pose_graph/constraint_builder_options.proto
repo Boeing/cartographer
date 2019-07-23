@@ -17,53 +17,32 @@ syntax = "proto3";
 package cartographer.mapping.constraints.proto;
 
 import "cartographer/mapping/proto/scan_matching/ceres_scan_matcher_options_2d.proto";
-import "cartographer/mapping/proto/scan_matching/ceres_scan_matcher_options_3d.proto";
-import "cartographer/mapping/proto/scan_matching/fast_correlative_scan_matcher_options_2d.proto";
-import "cartographer/mapping/proto/scan_matching/fast_correlative_scan_matcher_options_3d.proto";
 import "cartographer/mapping/proto/scan_matching/global_icp_scan_matcher_options_2d.proto";
 
 message ConstraintBuilderOptions {
-  // A constraint will be added if the proportion of added constraints to
-  // potential constraints drops below this number.
-  double sampling_ratio = 1;
-
-  // Threshold for poses to be considered near a submap.
-  double max_constraint_distance = 2;
-
   // Threshold for the scan match score below which a match is not considered.
   // Low scores indicate that the scan and map do not look similar.
-  double min_score = 4;
+  double min_local_search_score = 1;
 
   // Threshold below which global localizations are not trusted.
-  double global_localization_min_score = 5;
+  double min_global_search_score = 2;
 
-  // Weight used in the optimization problem for the translational component of
-  // loop closure constraints.
-  double loop_closure_translation_weight = 13;
+  // Weight used in the optimization problem for the translational component of loop closure constraints.
+  double constraint_translation_weight = 3;
 
-  // Weight used in the optimization problem for the rotational component of
-  // loop closure constraints.
-  double loop_closure_rotation_weight = 14;
+  // Weight used in the optimization problem for the rotational component of loop closure constraints.
+  double constraint_rotation_weight = 4;
 
   // If enabled, logs information of loop-closing constraints for debugging.
-  bool log_matches = 8;
+  bool log_matches = 5;
 
-  // Options for the internally used scan matchers.
-  mapping.scan_matching.proto.FastCorrelativeScanMatcherOptions2D
-      fast_correlative_scan_matcher_options = 9;
-  mapping.scan_matching.proto.CeresScanMatcherOptions2D
-      ceres_scan_matcher_options = 11;
-  mapping.scan_matching.proto.FastCorrelativeScanMatcherOptions3D
-      fast_correlative_scan_matcher_options_3d = 10;
-  mapping.scan_matching.proto.CeresScanMatcherOptions3D
-      ceres_scan_matcher_options_3d = 12;
+  // Options for the internally used scan matcher
+  mapping.scan_matching.proto.CeresScanMatcherOptions2D ceres_scan_matcher_options = 6;
+  mapping.scan_matching.proto.GlobalICPScanMatcherOptions2D global_icp_scan_matcher_options_2d = 7;
 
-  mapping.scan_matching.proto.GlobalICPScanMatcherOptions2D global_icp_scan_matcher_options_2d = 15;
+  // Minimum score to consider an ICP scan match successful
+  double min_icp_score = 8;
 
-  enum ScanMatch2dType {
-    FAST_CORRELATIVE = 0;
-    ICP = 1;
-  }
-
-  ScanMatch2dType scan_match_2d_type = 16;
+  // Minimum scan agreement required for a successful scan match
+  double min_scan_agreement_fraction = 9;
 }

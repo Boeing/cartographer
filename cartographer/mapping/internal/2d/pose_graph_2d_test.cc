@@ -25,6 +25,7 @@
 #include "cartographer/common/thread_pool.h"
 #include "cartographer/common/time.h"
 #include "cartographer/mapping/2d/probability_grid_range_data_inserter_2d.h"
+#include "cartographer/mapping/2d/active_submaps_2d.h"
 #include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/transform/rigid_transform.h"
 #include "cartographer/transform/rigid_transform_test_helpers.h"
@@ -186,10 +187,8 @@ class PoseGraph2DTest : public ::testing::Test {
     pose_graph_->AddNode(
         std::make_shared<const TrajectoryNode::Data>(
             TrajectoryNode::Data{common::FromUniversal(0),
-                                 Eigen::Quaterniond::Identity(),
+                                 {},
                                  range_data.returns,
-                                 {},
-                                 {},
                                  {},
                                  transform::Embed3D(pose_estimate)}),
         kTrajectoryId, insertion_submaps);

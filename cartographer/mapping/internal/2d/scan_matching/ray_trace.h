@@ -18,19 +18,22 @@ struct Point {
 
 inline int sign(int x) { return x > 0 ? 1.0 : -1.0; }
 
-inline Point bresenham2D(ProbabilityGrid& grid, unsigned int abs_da,
+inline Point bresenham2D(const ProbabilityGrid& grid, unsigned int abs_da,
                          unsigned int abs_db, int error_b, int offset_a,
                          int offset_b, unsigned int offset,
                          const unsigned int size_x, unsigned int max_length) {
+  const auto occupied_value = CorrespondenceCostToValue(ProbabilityToCorrespondenceCost(0.5f));
   unsigned int end = std::min(max_length, abs_da);
   for (unsigned int i = 0; i < end; ++i) {
     const int my = offset / size_x;
     const int mx = offset - (my * size_x);
 
-    const float prob = grid.GetProbability({mx, my});
-    if (prob > 0.5f) {
-      return {mx, my};
-    }
+    const Eigen::Array2i cell{mx, my};
+    if (!grid.limits().Contains(cell))
+        return {-1, -1};
+    auto cc = grid.correspondence_cost_cells().at(grid.ToFlatIndex(cell));
+    if (cc < occupied_value)
+        return {mx, my};
 
     offset += offset_a;
     error_b += abs_db;
@@ -42,7 +45,7 @@ inline Point bresenham2D(ProbabilityGrid& grid, unsigned int abs_da,
   return {-1, -1};
 }
 
-inline Point raytraceLine(ProbabilityGrid& grid, const unsigned int x0,
+inline Point raytraceLine(const ProbabilityGrid& grid, const unsigned int x0,
                           const unsigned int y0, const unsigned int x1,
                           const unsigned int y1, const unsigned int size_x,
                           const unsigned int max_length = UINT_MAX) {

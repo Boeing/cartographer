@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "cartographer/common/time.h"
+#include "cartographer/mapping/2d/active_submaps_2d.h"
 #include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/ceres_scan_matcher_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/real_time_correlative_scan_matcher_2d.h"
@@ -50,7 +51,6 @@ class LocalTrajectoryBuilder2D {
   struct MatchingResult {
     common::Time time;
     transform::Rigid3d local_pose;
-    sensor::RangeData range_data_in_local;
     // 'nullptr' if dropped by the motion filter.
     std::unique_ptr<const InsertionResult> insertion_result;
   };
@@ -78,20 +78,12 @@ class LocalTrajectoryBuilder2D {
 
  private:
   std::unique_ptr<MatchingResult> AddAccumulatedRangeData(
-      common::Time time, const sensor::RangeData& gravity_aligned_range_data,
-      const transform::Rigid3d& gravity_alignment,
+      common::Time time,
+      const transform::Rigid3d& pose_prediction,
+      const sensor::RangeData& range_data_wrt_tracking,
       const absl::optional<common::Duration>& sensor_duration);
-  sensor::RangeData TransformToGravityAlignedFrameAndFilter(
-      const transform::Rigid3f& transform_to_gravity_aligned_frame,
-      const sensor::RangeData& range_data) const;
-  std::unique_ptr<InsertionResult> InsertIntoSubmap(
-      common::Time time, const sensor::RangeData& range_data_in_local,
-      const sensor::PointCloud& filtered_gravity_aligned_point_cloud,
-      const transform::Rigid3d& pose_estimate,
-      const Eigen::Quaterniond& gravity_alignment);
 
-  // Scan matches 'filtered_gravity_aligned_point_cloud' and returns the
-  // observed pose, or nullptr on failure.
+  // Scan matches 'filtered_gravity_aligned_point_cloud' and returns the observed pose, or nullptr on failure
   std::unique_ptr<transform::Rigid2d> ScanMatch(
       common::Time time, const transform::Rigid2d& pose_prediction,
       const sensor::PointCloud& filtered_gravity_aligned_point_cloud);

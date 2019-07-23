@@ -15,6 +15,7 @@
  */
 
 #include "cartographer/mapping/internal/2d/local_trajectory_builder_2d.h"
+#include "cartographer/mapping/internal/2d/scan_features/circle_detector_2d.h"
 
 #include <limits>
 #include <memory>
@@ -47,20 +48,6 @@ LocalTrajectoryBuilder2D::LocalTrajectoryBuilder2D(
       range_data_collator_(expected_range_sensor_ids) {}
 
 LocalTrajectoryBuilder2D::~LocalTrajectoryBuilder2D() {}
-
-sensor::RangeData
-LocalTrajectoryBuilder2D::TransformToGravityAlignedFrameAndFilter(
-    const transform::Rigid3f& transform_to_gravity_aligned_frame,
-    const sensor::RangeData& range_data) const {
-  const sensor::RangeData cropped =
-      sensor::CropRangeData(sensor::TransformRangeData(
-                                range_data, transform_to_gravity_aligned_frame),
-                            options_.min_z(), options_.max_z());
-  return sensor::RangeData{
-      cropped.origin,
-      sensor::VoxelFilter(options_.voxel_filter_size()).Filter(cropped.returns),
-      sensor::VoxelFilter(options_.voxel_filter_size()).Filter(cropped.misses)};
-}
 
 std::unique_ptr<transform::Rigid2d> LocalTrajectoryBuilder2D::ScanMatch(
     const common::Time time, const transform::Rigid2d& pose_prediction,
@@ -105,63 +92,36 @@ std::unique_ptr<LocalTrajectoryBuilder2D::MatchingResult>
 LocalTrajectoryBuilder2D::AddRangeData(
     const std::string& sensor_id,
     const sensor::TimedPointCloudData& unsynchronized_data) {
-  auto synchronized_data =
-      range_data_collator_.AddRangeData(sensor_id, unsynchronized_data);
-  if (synchronized_data.ranges.empty()) {
-    LOG(INFO) << "Range data collator filling buffer.";
+
+  const auto synchronized_data = range_data_collator_.AddRangeData(sensor_id, unsynchronized_data);
+
+  if (synchronized_data.ranges.empty())
     return nullptr;
-  }
 
   const common::Time& time = synchronized_data.time;
-  // Initialize extrapolator now if we do not ever use an IMU.
-  if (!options_.use_imu_data()) {
+
+  if (!options_.use_imu_data())
     InitializeExtrapolator(time);
-  }
 
-  if (extrapolator_ == nullptr) {
-    // Until we've initialized the extrapolator with our first IMU message, we
-    // cannot compute the orientation of the rangefinder.
-    LOG(INFO) << "Extrapolator not yet initialized.";
+  if (extrapolator_ == nullptr)
     return nullptr;
-  }
 
-  CHECK(!synchronized_data.ranges.empty());
-  // TODO(gaschler): Check if this can strictly be 0.
-  CHECK_LE(synchronized_data.ranges.back().point_time.time, 0.f);
-  const common::Time time_first_point =
-      time +
-      common::FromSeconds(synchronized_data.ranges.front().point_time.time);
-  if (time_first_point < extrapolator_->GetLastPoseTime()) {
-    LOG(INFO) << "Extrapolator is still initializing.";
-    return nullptr;
-  }
+  const transform::Rigid3d pose_prediction = extrapolator_->ExtrapolatePose(time);
 
   std::vector<transform::Rigid3f> range_data_poses;
   range_data_poses.reserve(synchronized_data.ranges.size());
-  bool warned = false;
-  for (const auto& range : synchronized_data.ranges) {
+  for (const auto& range : synchronized_data.ranges)
+  {
     common::Time time_point = time + common::FromSeconds(range.point_time.time);
-    if (time_point < extrapolator_->GetLastExtrapolatedTime()) {
-      if (!warned) {
-        LOG(ERROR)
-            << "Timestamp of individual range data point jumps backwards from "
-            << extrapolator_->GetLastExtrapolatedTime() << " to " << time_point;
-        warned = true;
-      }
-      time_point = extrapolator_->GetLastExtrapolatedTime();
-    }
-    range_data_poses.push_back(
-        extrapolator_->ExtrapolatePose(time_point).cast<float>());
+    range_data_poses.push_back(extrapolator_->ExtrapolatePose(time_point).cast<float>());
   }
 
   if (num_accumulated_ == 0) {
-    // 'accumulated_range_data_.origin' is uninitialized until the last
-    // accumulation.
+    // 'accumulated_range_data_.origin' is uninitialized until the last accumulation
     accumulated_range_data_ = sensor::RangeData{{}, {}, {}};
   }
 
-  // Drop any returns below the minimum range and convert returns beyond the
-  // maximum range into misses.
+  // Drop any returns below the minimum range and convert returns beyond the maximum range into misses
   for (size_t i = 0; i < synchronized_data.ranges.size(); ++i) {
     const sensor::TimedRangefinderPoint& hit =
         synchronized_data.ranges[i].point_time;
@@ -185,7 +145,8 @@ LocalTrajectoryBuilder2D::AddRangeData(
   }
   ++num_accumulated_;
 
-  if (num_accumulated_ >= options_.num_accumulated_range_data()) {
+  if (num_accumulated_ >= options_.num_accumulated_range_data())
+  {
     const common::Time current_sensor_time = synchronized_data.time;
     absl::optional<common::Duration> sensor_duration;
     if (last_sensor_time_.has_value()) {
@@ -193,17 +154,22 @@ LocalTrajectoryBuilder2D::AddRangeData(
     }
     last_sensor_time_ = current_sensor_time;
     num_accumulated_ = 0;
-    const transform::Rigid3d gravity_alignment = transform::Rigid3d::Rotation(
-        extrapolator_->EstimateGravityOrientation(time));
-    // TODO(gaschler): This assumes that 'range_data_poses.back()' is at time
-    // 'time'.
-    accumulated_range_data_.origin = range_data_poses.back().translation();
+
+    accumulated_range_data_.origin = pose_prediction.translation().cast<float>();
+
+    const auto range_data_wrt_tracking = sensor::TransformRangeData(accumulated_range_data_, pose_prediction.inverse().cast<float>());
+    const auto cropped = sensor::CropRangeData(range_data_wrt_tracking, options_.min_z(), options_.max_z());
+    const auto voxel_filtered = sensor::RangeData{
+        cropped.origin,
+        sensor::VoxelFilter(options_.voxel_filter_size()).Filter(cropped.returns),
+        sensor::VoxelFilter(options_.voxel_filter_size()).Filter(cropped.misses)};
+
     return AddAccumulatedRangeData(
         time,
-        TransformToGravityAlignedFrameAndFilter(
-            gravity_alignment.cast<float>() * range_data_poses.back().inverse(),
-            accumulated_range_data_),
-        gravity_alignment, sensor_duration);
+        pose_prediction,
+        voxel_filtered,
+        sensor_duration
+    );
   }
   return nullptr;
 }
@@ -211,44 +177,116 @@ LocalTrajectoryBuilder2D::AddRangeData(
 std::unique_ptr<LocalTrajectoryBuilder2D::MatchingResult>
 LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
     const common::Time time,
-    const sensor::RangeData& gravity_aligned_range_data,
-    const transform::Rigid3d& gravity_alignment,
-    const absl::optional<common::Duration>& sensor_duration) {
-  if (gravity_aligned_range_data.returns.empty()) {
-    LOG(WARNING) << "Dropped empty horizontal range data.";
+    const transform::Rigid3d& pose_prediction,
+    const sensor::RangeData& range_data_wrt_tracking,
+    const absl::optional<common::Duration>& sensor_duration)
+{
+  CHECK(!range_data_wrt_tracking.returns.empty());
+
+  const transform::Rigid2d pose_prediction_2d = transform::Project2D(pose_prediction);
+
+  const sensor::PointCloud& adaptive_filtered = sensor::AdaptiveVoxelFilter(options_.adaptive_voxel_filter_options()).Filter(range_data_wrt_tracking.returns);
+
+  if (adaptive_filtered.empty())
     return nullptr;
-  }
 
-  // Computes a gravity aligned pose prediction.
-  const transform::Rigid3d non_gravity_aligned_pose_prediction =
-      extrapolator_->ExtrapolatePose(time);
-  const transform::Rigid2d pose_prediction = transform::Project2D(
-      non_gravity_aligned_pose_prediction * gravity_alignment.inverse());
+  const std::unique_ptr<transform::Rigid2d> pose_estimate_2d = ScanMatch(time, pose_prediction_2d, adaptive_filtered);
 
-  const sensor::PointCloud& filtered_gravity_aligned_point_cloud =
-      sensor::AdaptiveVoxelFilter(options_.adaptive_voxel_filter_options())
-          .Filter(gravity_aligned_range_data.returns);
-  if (filtered_gravity_aligned_point_cloud.empty()) {
-    return nullptr;
-  }
-
-  // local map frame <- gravity-aligned frame
-  std::unique_ptr<transform::Rigid2d> pose_estimate_2d =
-      ScanMatch(time, pose_prediction, filtered_gravity_aligned_point_cloud);
-  if (pose_estimate_2d == nullptr) {
+  if (pose_estimate_2d == nullptr)
+  {
     LOG(WARNING) << "Scan matching failed.";
     return nullptr;
   }
-  const transform::Rigid3d pose_estimate =
-      transform::Embed3D(*pose_estimate_2d) * gravity_alignment;
+
+//  const auto scan_match_shift = pose_prediction_2d.inverse() * *pose_estimate_2d;
+//  LOG(INFO) << "ScanMatch: " << scan_match_shift;
+
+  const transform::Rigid3d pose_estimate = transform::Embed3D(*pose_estimate_2d);
+
   extrapolator_->AddPose(time, pose_estimate);
 
-  sensor::RangeData range_data_in_local =
-      TransformRangeData(gravity_aligned_range_data,
-                         transform::Embed3D(pose_estimate_2d->cast<float>()));
-  std::unique_ptr<InsertionResult> insertion_result = InsertIntoSubmap(
-      time, range_data_in_local, filtered_gravity_aligned_point_cloud,
-      pose_estimate, gravity_alignment.rotation());
+  if (motion_filter_.IsSimilar(time, pose_estimate)) {
+      return nullptr;
+  }
+
+  const auto range_data_in_local = TransformRangeData(range_data_wrt_tracking, transform::Embed3D(pose_estimate_2d->cast<float>()));
+
+  // Detect features
+  std::vector<CircleFeature> circle_features;
+  for (const auto radius : options_.circle_feature_options().detect_radii())
+  {
+      const auto pole_features = DetectReflectivePoles(range_data_wrt_tracking.returns, radius);
+      for (const auto& f : pole_features)
+      {
+          const auto p = FitCircle(f);
+          circle_features.push_back(CircleFeature{Keypoint{{p.position.x(), p.position.y(), 0.0f}}, CircleDescriptor{p.mse, p.radius}});
+      }
+  }
+
+  std::vector<std::shared_ptr<const Submap2D>> insertion_submaps = active_submaps_.InsertRangeData(range_data_in_local);
+
+  // Find circle features on submap completion
+  if (insertion_submaps.front()->insertion_finished())
+  {
+    LOG(INFO) << "Searching for CircleFeatures on Submap completion...";
+    Submap2D* sm = active_submaps_.submaps().front().get();
+    auto pg = dynamic_cast<const ProbabilityGrid*>(sm->grid());
+
+    scan_matching::proto::CeresScanMatcherOptions2D ceres_options;
+    ceres_options.set_occupied_space_weight(1.0);
+    ceres_options.set_translation_weight(1.0);
+    ceres_options.set_rotation_weight(1.0);
+    ceres_options.mutable_ceres_solver_options()->set_max_num_iterations(20);
+    ceres_options.mutable_ceres_solver_options()->set_num_threads(1);
+    scan_matching::CeresScanMatcher2D scan_matcher(ceres_options);
+
+    std::vector<CircleFeature> submap_circle_features;
+    for (const auto radius : options_.circle_feature_options().detect_radii())
+    {
+        const auto map_circles = DetectCircles(*pg, radius);
+        for (const auto& c : map_circles)
+        {
+            const auto real_p = pg->limits().GetCellCenter({c.x(), c.y()});
+
+            const transform::Rigid2d initial_pose_estimate({real_p.x(), real_p.y()}, 0.0);
+
+            sensor::PointCloud pc;
+            const int num_scans = 16;
+            for (int i=0; i<num_scans; ++i)
+            {
+                const double angle = -M_PI + (static_cast<double>(i) * 2.0 * M_PI) / static_cast<double>(num_scans);
+                const auto dir = Eigen::Rotation2Df(static_cast<float>(angle)) * Eigen::Vector2f(radius, 0.f);
+                pc.push_back(sensor::RangefinderPoint{{dir.x(), dir.y(), 0.0}, 0.0f});
+            }
+
+            transform::Rigid2d pose_estimate;
+            ceres::Solver::Summary summary;
+
+            scan_matcher.Match(initial_pose_estimate.translation(),
+                               initial_pose_estimate,
+                               pc,
+                               *pg,
+                               &pose_estimate,
+                               &summary);
+
+            submap_circle_features.push_back(
+                        CircleFeature{
+                            Keypoint{{pose_estimate.translation().x(), pose_estimate.translation().y(), 0.0f}},
+                            CircleDescriptor{static_cast<float>(summary.final_cost), radius}});
+        }
+    }
+    sm->SetCircleFeatures(submap_circle_features);
+    LOG(INFO) << "Found " << submap_circle_features.size() << " CircleFeatures in Submap";
+  }
+
+  auto insertion_result = absl::make_unique<InsertionResult>(InsertionResult{
+      std::make_shared<const TrajectoryNode::Data>(TrajectoryNode::Data{
+          time,
+          range_data_wrt_tracking,
+          adaptive_filtered,
+          circle_features,
+          pose_estimate}),
+      std::move(insertion_submaps)});
 
   const auto wall_time = std::chrono::steady_clock::now();
   if (last_wall_time_.has_value()) {
@@ -271,32 +309,8 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   }
   last_wall_time_ = wall_time;
   last_thread_cpu_time_seconds_ = thread_cpu_time_seconds;
-  return absl::make_unique<MatchingResult>(
-      MatchingResult{time, pose_estimate, std::move(range_data_in_local),
-                     std::move(insertion_result)});
-}
 
-std::unique_ptr<LocalTrajectoryBuilder2D::InsertionResult>
-LocalTrajectoryBuilder2D::InsertIntoSubmap(
-    const common::Time time, const sensor::RangeData& range_data_in_local,
-    const sensor::PointCloud& filtered_gravity_aligned_point_cloud,
-    const transform::Rigid3d& pose_estimate,
-    const Eigen::Quaterniond& gravity_alignment) {
-  if (motion_filter_.IsSimilar(time, pose_estimate)) {
-    return nullptr;
-  }
-  std::vector<std::shared_ptr<const Submap2D>> insertion_submaps =
-      active_submaps_.InsertRangeData(range_data_in_local);
-  return absl::make_unique<InsertionResult>(InsertionResult{
-      std::make_shared<const TrajectoryNode::Data>(TrajectoryNode::Data{
-          time,
-          gravity_alignment,
-          filtered_gravity_aligned_point_cloud,
-          {},  // 'high_resolution_point_cloud' is only used in 3D.
-          {},  // 'low_resolution_point_cloud' is only used in 3D.
-          {},  // 'rotational_scan_matcher_histogram' is only used in 3D.
-          pose_estimate}),
-      std::move(insertion_submaps)});
+  return absl::make_unique<MatchingResult>(MatchingResult{time, pose_estimate, std::move(insertion_result)});
 }
 
 void LocalTrajectoryBuilder2D::AddImuData(const sensor::ImuData& imu_data) {

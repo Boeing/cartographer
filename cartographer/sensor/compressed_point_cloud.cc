@@ -15,11 +15,11 @@
  */
 
 #include "cartographer/sensor/compressed_point_cloud.h"
+#include "cartographer/mapping/hybrid_grid.h"
 
 #include <limits>
 
 #include "cartographer/common/math.h"
-#include "cartographer/mapping/3d/hybrid_grid.h"
 
 namespace cartographer {
 namespace sensor {

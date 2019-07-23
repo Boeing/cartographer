@@ -17,6 +17,14 @@ syntax = "proto3";
 package cartographer.mapping.scan_matching.proto;
 
 message ICPScanMatcherOptions2D {
-  double nn_huber_loss = 1;
-  double pp_huber_loss = 2;
+  double nearest_neighbour_point_huber_loss = 1;
+  double nearest_neighbour_feature_huber_loss = 2;
+
+  double point_pair_point_huber_loss = 3;
+  double point_pair_feature_huber_loss = 4;
+
+  double unmatched_feature_cost = 5;
+
+  double point_weight = 6;
+  double feature_weight = 7;
 }

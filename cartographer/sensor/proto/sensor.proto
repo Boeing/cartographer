@@ -22,11 +22,13 @@ import "cartographer/transform/proto/transform.proto";
 
 message RangefinderPoint {
   transform.proto.Vector3f position = 1;
+  float intensity = 2;
 }
 
 message TimedRangefinderPoint {
   transform.proto.Vector3f position = 1;
   float time = 2;
+  float intensity = 3;
 }
 
 // Compressed collection of a 3D point cloud.
@@ -63,6 +65,8 @@ message ImuData {
 message OdometryData {
   int64 timestamp = 1;
   transform.proto.Rigid3d pose = 2;
+  transform.proto.Vector3d linear_velocity = 3;
+  transform.proto.Vector3d angular_velocity = 4;
 }
 
 // Proto representation of ::cartographer::sensor::FixedFramePoseData.
