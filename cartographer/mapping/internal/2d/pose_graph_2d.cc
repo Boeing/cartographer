@@ -455,7 +455,7 @@ WorkItem::Result PoseGraph2D::ComputeConstraintsForNode(
         }
       }
     } else {
-      LOG(INFO) << "skipping INTER constraint search due to busy work queue";
+      LOG(INFO) << "skipping INTER constraint search due to busy work queue: " << work_queue_size;
     }
   }
 

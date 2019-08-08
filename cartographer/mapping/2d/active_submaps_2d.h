@@ -41,7 +41,8 @@ class ActiveSubmaps2D {
 
   // Inserts 'range_data' into the Submap collection.
   std::vector<std::shared_ptr<const Submap2D>> InsertRangeData(
-      const sensor::RangeData& range_data);
+      const sensor::RangeData& range_data,
+      const std::vector<CircleFeature>& circle_features={});
 
   const std::vector<std::shared_ptr<Submap2D>>& submaps();
   std::vector<std::shared_ptr<const Submap2D>> submaps() const;
