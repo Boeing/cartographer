@@ -7,11 +7,13 @@ namespace mapping {
 proto::Keypoint ToProto(const Keypoint& feature) {
   proto::Keypoint proto;
   *proto.mutable_position() = transform::ToProto(feature.position);
+  *proto.mutable_covariance() = transform::ToProto(feature.covariance);
   return proto;
 }
 
 Keypoint FromProto(const proto::Keypoint& proto) {
-  return Keypoint{transform::ToEigen(proto.position())};
+  return Keypoint{transform::ToEigen(proto.position()),
+                  transform::ToEigen(proto.covariance())};
 }
 
 proto::CircleDescriptor ToProto(const CircleDescriptor& fdescriptor) {

@@ -202,14 +202,13 @@ std::vector<Circle<float>> DetectReflectivePoles(
     while (angle <= max_angle) {
       // assess candidate point
       const float distance_to_circumference =
-          radius - (fw_it->position.head<2>() - position).norm();
-      const float d2 = distance_to_circumference * distance_to_circumference;
+          std::abs(radius - (fw_it->position.head<2>() - position).norm());
 
-      mse += d2;
-      if (distance_to_circumference < 0) mse += d2;
-      count++;
-
-      circle.points.push_back(fw_it->position.head<2>());
+      if (distance_to_circumference < 2.f * radius) {
+        mse += distance_to_circumference;
+        count++;
+        circle.points.push_back(fw_it->position.head<2>());
+      }
 
       fw_it = advance_and_wrap(fw_it, sorted_range_data.begin(),
                                sorted_range_data.end());
@@ -226,14 +225,13 @@ std::vector<Circle<float>> DetectReflectivePoles(
     while (angle <= max_angle) {
       // assess candidate point
       const float distance_to_circumference =
-          radius - (bw_it->position.head<2>() - position).norm();
-      const float d2 = distance_to_circumference * distance_to_circumference;
+          std::abs(radius - (bw_it->position.head<2>() - position).norm());
 
-      mse += d2;
-      if (distance_to_circumference < 0) mse += d2;
-      count++;
-
-      circle.points.push_back(bw_it->position.head<2>());
+      if (distance_to_circumference < 2.f * radius) {
+        mse += distance_to_circumference;
+        count++;
+        circle.points.push_back(bw_it->position.head<2>());
+      }
 
       bw_it = advance_and_wrap(bw_it, sorted_range_data.rbegin(),
                                sorted_range_data.rend());
@@ -241,9 +239,8 @@ std::vector<Circle<float>> DetectReflectivePoles(
     }
 
     mse /= count;
-    mse = std::sqrt(mse);
 
-    if (count >= 3 && mse < radius * 0.5f) {
+    if (count >= 3 && mse < radius * 1.f) {
       circle.mse = mse;
       circle.count = count;
       circles.push_back(circle);

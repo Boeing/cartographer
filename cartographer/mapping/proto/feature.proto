@@ -5,7 +5,8 @@ import "cartographer/transform/proto/transform.proto";
 package cartographer.mapping.proto;
 
 message Keypoint {
-  transform.proto.Vector3f position = 2;
+  transform.proto.Vector3f position = 1;
+  transform.proto.Vector3f covariance = 2;
 }
 
 message CircleDescriptor {

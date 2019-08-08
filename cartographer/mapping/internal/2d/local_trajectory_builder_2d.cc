@@ -97,14 +97,18 @@ LocalTrajectoryBuilder2D::AddRangeData(
 
   if (synchronized_data.ranges.empty()) return nullptr;
 
+  // time should refer to the last point
   const common::Time& time = synchronized_data.time;
 
-  if (!options_.use_imu_data()) InitializeExtrapolator(time);
+  const common::Time& start_time =
+      time +
+      common::FromSeconds(synchronized_data.ranges.front().point_time.time);
+
+  CHECK(start_time <= time);
+
+  if (!options_.use_imu_data()) InitializeExtrapolator(start_time);
 
   if (extrapolator_ == nullptr) return nullptr;
-
-  const transform::Rigid3d pose_prediction =
-      extrapolator_->ExtrapolatePose(time);
 
   std::vector<transform::Rigid3f> range_data_poses;
   range_data_poses.reserve(synchronized_data.ranges.size());
@@ -113,6 +117,9 @@ LocalTrajectoryBuilder2D::AddRangeData(
     range_data_poses.push_back(
         extrapolator_->ExtrapolatePose(time_point).cast<float>());
   }
+
+  const transform::Rigid3d pose_prediction =
+      extrapolator_->ExtrapolatePose(time);
 
   if (num_accumulated_ == 0) {
     // 'accumulated_range_data_.origin' is uninitialized until the last
@@ -217,69 +224,34 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   // Detect features
   std::vector<CircleFeature> circle_features;
   for (const auto radius : options_.circle_feature_options().detect_radii()) {
+    LOG(INFO) << "Searching for circles of radius: " << radius;
     const auto pole_features =
         DetectReflectivePoles(range_data_wrt_tracking.returns, radius);
     for (const auto& f : pole_features) {
       const auto p = FitCircle(f);
+      const float xy_covariance = std::sqrt(p.mse);
+      LOG(INFO) << "Found circle: " << p.position.transpose();
       circle_features.push_back(
-          CircleFeature{Keypoint{{p.position.x(), p.position.y(), 0.0f}},
+          CircleFeature{Keypoint{{p.position.x(), p.position.y(), 0.f},
+                                 {xy_covariance, xy_covariance, 0.f}},
                         CircleDescriptor{p.mse, p.radius}});
     }
   }
+  LOG(INFO) << "Found " << circle_features.size() << " circles";
+
+  std::vector<CircleFeature> circle_features_in_local;
+  std::transform(circle_features.begin(), circle_features.end(),
+                 std::back_inserter(circle_features_in_local),
+                 [&pose_estimate](const CircleFeature& cf) {
+                   return CircleFeature{Keypoint{pose_estimate.cast<float>() *
+                                                     cf.keypoint.position,
+                                                 cf.keypoint.covariance},
+                                        cf.fdescriptor};
+                 });
 
   std::vector<std::shared_ptr<const Submap2D>> insertion_submaps =
-      active_submaps_.InsertRangeData(range_data_in_local);
-
-  // Find circle features on submap completion
-  if (insertion_submaps.front()->insertion_finished()) {
-    LOG(INFO) << "Searching for CircleFeatures on Submap completion...";
-    Submap2D* sm = active_submaps_.submaps().front().get();
-    auto pg = dynamic_cast<const ProbabilityGrid*>(sm->grid());
-
-    scan_matching::proto::CeresScanMatcherOptions2D ceres_options;
-    ceres_options.set_occupied_space_weight(1.0);
-    ceres_options.set_translation_weight(1.0);
-    ceres_options.set_rotation_weight(1.0);
-    ceres_options.mutable_ceres_solver_options()->set_max_num_iterations(20);
-    ceres_options.mutable_ceres_solver_options()->set_num_threads(1);
-    scan_matching::CeresScanMatcher2D scan_matcher(ceres_options);
-
-    std::vector<CircleFeature> submap_circle_features;
-    for (const auto radius : options_.circle_feature_options().detect_radii()) {
-      const auto map_circles = DetectCircles(*pg, radius);
-      for (const auto& c : map_circles) {
-        const auto real_p = pg->limits().GetCellCenter({c.x(), c.y()});
-
-        const transform::Rigid2d initial_pose_estimate({real_p.x(), real_p.y()},
-                                                       0.0);
-
-        sensor::PointCloud pc;
-        const int num_scans = 16;
-        for (int i = 0; i < num_scans; ++i) {
-          const double angle = -M_PI + (static_cast<double>(i) * 2.0 * M_PI) /
-                                           static_cast<double>(num_scans);
-          const auto dir = Eigen::Rotation2Df(static_cast<float>(angle)) *
-                           Eigen::Vector2f(radius, 0.f);
-          pc.push_back(sensor::RangefinderPoint{{dir.x(), dir.y(), 0.0}, 0.0f});
-        }
-
-        transform::Rigid2d pose_estimate;
-        ceres::Solver::Summary summary;
-
-        scan_matcher.Match(initial_pose_estimate.translation(),
-                           initial_pose_estimate, pc, *pg, &pose_estimate,
-                           &summary);
-
-        submap_circle_features.push_back(CircleFeature{
-            Keypoint{{pose_estimate.translation().x(),
-                      pose_estimate.translation().y(), 0.0f}},
-            CircleDescriptor{static_cast<float>(summary.final_cost), radius}});
-      }
-    }
-    sm->SetCircleFeatures(submap_circle_features);
-    LOG(INFO) << "Found " << submap_circle_features.size()
-              << " CircleFeatures in Submap";
-  }
+      active_submaps_.InsertRangeData(range_data_in_local,
+                                      circle_features_in_local);
 
   auto insertion_result = absl::make_unique<InsertionResult>(InsertionResult{
       std::make_shared<const TrajectoryNode::Data>(

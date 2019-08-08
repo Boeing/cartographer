@@ -32,13 +32,15 @@ std::vector<std::shared_ptr<const Submap2D>> ActiveSubmaps2D::submaps() const {
 }
 
 std::vector<std::shared_ptr<const Submap2D>> ActiveSubmaps2D::InsertRangeData(
-    const sensor::RangeData& range_data) {
+    const sensor::RangeData& range_data,
+    const std::vector<CircleFeature>& circle_features) {
   if (submaps_.empty() ||
       submaps_.back()->num_range_data() >= options_.num_range_data()) {
     AddSubmap(range_data.origin.head<2>());
   }
   for (auto& submap : submaps_) {
     submap->InsertRangeData(range_data, range_data_inserter_.get());
+    submap->InsertCircleFeatures(circle_features);
   }
   if (submaps_.front()->num_range_data() >= 2 * options_.num_range_data()) {
     submaps_.front()->Finish();
