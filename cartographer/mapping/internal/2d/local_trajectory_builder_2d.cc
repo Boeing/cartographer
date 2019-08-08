@@ -100,7 +100,9 @@ LocalTrajectoryBuilder2D::AddRangeData(
   // time should refer to the last point
   const common::Time& time = synchronized_data.time;
 
-  const common::Time& start_time = time + common::FromSeconds(synchronized_data.ranges.front().point_time.time);
+  const common::Time& start_time =
+      time +
+      common::FromSeconds(synchronized_data.ranges.front().point_time.time);
 
   CHECK(start_time <= time);
 
@@ -222,7 +224,7 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   // Detect features
   std::vector<CircleFeature> circle_features;
   for (const auto radius : options_.circle_feature_options().detect_radii()) {
-      LOG(INFO) << "Searching for circles of radius: " << radius;
+    LOG(INFO) << "Searching for circles of radius: " << radius;
     const auto pole_features =
         DetectReflectivePoles(range_data_wrt_tracking.returns, radius);
     for (const auto& f : pole_features) {
@@ -230,19 +232,26 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
       const float xy_covariance = std::sqrt(p.mse);
       LOG(INFO) << "Found circle: " << p.position.transpose();
       circle_features.push_back(
-                  CircleFeature{Keypoint{{p.position.x(), p.position.y(), 0.f}, {xy_covariance, xy_covariance, 0.f}},
+          CircleFeature{Keypoint{{p.position.x(), p.position.y(), 0.f},
+                                 {xy_covariance, xy_covariance, 0.f}},
                         CircleDescriptor{p.mse, p.radius}});
     }
   }
   LOG(INFO) << "Found " << circle_features.size() << " circles";
 
   std::vector<CircleFeature> circle_features_in_local;
-  std::transform(circle_features.begin(), circle_features.end(), std::back_inserter(circle_features_in_local), [&pose_estimate](const CircleFeature& cf) {
-     return CircleFeature{Keypoint{pose_estimate.cast<float>() * cf.keypoint.position, cf.keypoint.covariance}, cf.fdescriptor};
-  });
+  std::transform(circle_features.begin(), circle_features.end(),
+                 std::back_inserter(circle_features_in_local),
+                 [&pose_estimate](const CircleFeature& cf) {
+                   return CircleFeature{Keypoint{pose_estimate.cast<float>() *
+                                                     cf.keypoint.position,
+                                                 cf.keypoint.covariance},
+                                        cf.fdescriptor};
+                 });
 
   std::vector<std::shared_ptr<const Submap2D>> insertion_submaps =
-      active_submaps_.InsertRangeData(range_data_in_local, circle_features_in_local);
+      active_submaps_.InsertRangeData(range_data_in_local,
+                                      circle_features_in_local);
 
   auto insertion_result = absl::make_unique<InsertionResult>(InsertionResult{
       std::make_shared<const TrajectoryNode::Data>(

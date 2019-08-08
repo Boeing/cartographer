@@ -41,65 +41,68 @@ proto::SubmapsOptions2D CreateSubmapsOptions2D(
     common::LuaParameterDictionary* parameter_dictionary);
 
 class CircleFeatureSmoother {
-public:
-    CircleFeatureSmoother(const CircleFeature& feature)
-        : initial_feature_(feature)
-    {
-        x = feature.keypoint.position.head<2>();
-        P.diagonal() << feature.keypoint.covariance.head<2>();
-    }
+ public:
+  CircleFeatureSmoother(const CircleFeature& feature)
+      : initial_feature_(feature) {
+    x = feature.keypoint.position.head<2>();
+    P.diagonal() << feature.keypoint.covariance.head<2>();
+  }
 
-    CircleFeature feature() const {
-        CircleFeature f = initial_feature_;
-        f.keypoint.position.x() = x.x();
-        f.keypoint.position.y() = x.y();
-        f.keypoint.position.z() = 0;
-        return f;
-    }
-    void AddObservation(const CircleFeature& feature) {
-        const Eigen::Vector2f x_1 = A * x;
+  CircleFeature feature() const {
+    CircleFeature f = initial_feature_;
+    f.keypoint.position.x() = x.x();
+    f.keypoint.position.y() = x.y();
+    f.keypoint.position.z() = 0;
+    return f;
+  }
+  void AddObservation(const CircleFeature& feature) {
+    const Eigen::Vector2f x_1 = A * x;
 
-        // state prediction covariance
-        P = A*P*A.transpose() + Q;
+    // state prediction covariance
+    P = A * P * A.transpose() + Q;
 
-        // measurement noise
-        Eigen::Matrix<float, 2, 2> R = Eigen::Matrix<float, 2, 2>::Zero();
-        R.diagonal() << feature.keypoint.covariance.head<2>();
+    // measurement noise
+    Eigen::Matrix<float, 2, 2> R = Eigen::Matrix<float, 2, 2>::Zero();
+    R.diagonal() << feature.keypoint.covariance.head<2>();
 
-        // measurement prediction covariance
-        const Eigen::Matrix<float, 2, 2> S = H*P*H.transpose() + R;
+    // measurement prediction covariance
+    const Eigen::Matrix<float, 2, 2> S = H * P * H.transpose() + R;
 
-        // filter gain
-        const Eigen::Matrix<float, 2, 2> K = P*H.transpose()*S.inverse();
+    // filter gain
+    const Eigen::Matrix<float, 2, 2> K = P * H.transpose() * S.inverse();
 
-        // measurement
-        const Eigen::Vector2f z = feature.keypoint.position.head<2>();
+    // measurement
+    const Eigen::Vector2f z = feature.keypoint.position.head<2>();
 
-        LOG(INFO) << "AddObservation: z: " << z.transpose();
+    LOG(INFO) << "AddObservation: z: " << z.transpose();
 
-        LOG(INFO) << " x: " << x.transpose() << " P: " << P.diagonal().transpose();
+    LOG(INFO) << " x: " << x.transpose() << " P: " << P.diagonal().transpose();
 
-        // measurement redisual
-        const Eigen::Vector2f V = z - H*x_1;
+    // measurement redisual
+    const Eigen::Vector2f V = z - H * x_1;
 
-        // update state
-        x += K * V;
+    // update state
+    x += K * V;
 
-        // update state covariance
-        P = (Eigen::Matrix<float, 2, 2>::Identity() - K*H)*P;
+    // update state covariance
+    P = (Eigen::Matrix<float, 2, 2>::Identity() - K * H) * P;
 
-        LOG(INFO) << " x: " << x.transpose() << " P: " << P.diagonal().transpose();
-    }
+    LOG(INFO) << " x: " << x.transpose() << " P: " << P.diagonal().transpose();
+  }
 
-private:
-    Eigen::Vector2f x;
-    Eigen::Matrix<float, 2, 2> P = Eigen::Matrix<float, 2, 2>::Zero(); // estimate error covariance
+ private:
+  Eigen::Vector2f x;
+  Eigen::Matrix<float, 2, 2> P =
+      Eigen::Matrix<float, 2, 2>::Zero();  // estimate error covariance
 
-    const Eigen::Matrix<float, 2, 2> A = Eigen::Matrix<float, 2, 2>::Identity(); // dynamics model
-    const Eigen::Matrix<float, 2, 2> Q = Eigen::Matrix<float, 2, 2>::Zero(); // process noise
-    const Eigen::Matrix<float, 2, 2> H = Eigen::Matrix<float, 2, 2>::Identity(); // observation model
+  const Eigen::Matrix<float, 2, 2> A =
+      Eigen::Matrix<float, 2, 2>::Identity();  // dynamics model
+  const Eigen::Matrix<float, 2, 2> Q =
+      Eigen::Matrix<float, 2, 2>::Zero();  // process noise
+  const Eigen::Matrix<float, 2, 2> H =
+      Eigen::Matrix<float, 2, 2>::Identity();  // observation model
 
-    CircleFeature initial_feature_;
+  CircleFeature initial_feature_;
 };
 
 class Submap2D : public Submap {
@@ -126,7 +129,8 @@ class Submap2D : public Submap {
 
   void Finish();
 
-  const std::vector<CircleFeature> SetCircleFeatures(const std::vector<CircleFeature>& circle_features) {
+  const std::vector<CircleFeature> SetCircleFeatures(
+      const std::vector<CircleFeature>& circle_features) {
     return circle_features_ = circle_features;
   }
 

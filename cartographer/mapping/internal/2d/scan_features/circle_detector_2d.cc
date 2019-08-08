@@ -201,10 +201,10 @@ std::vector<Circle<float>> DetectReflectivePoles(
     float angle = std::abs(angle_between(dir, fw_it->position.head<2>()));
     while (angle <= max_angle) {
       // assess candidate point
-      const float distance_to_circumference = std::abs(radius - (fw_it->position.head<2>() - position).norm());
+      const float distance_to_circumference =
+          std::abs(radius - (fw_it->position.head<2>() - position).norm());
 
-      if (distance_to_circumference < 2.f * radius)
-      {
+      if (distance_to_circumference < 2.f * radius) {
         mse += distance_to_circumference;
         count++;
         circle.points.push_back(fw_it->position.head<2>());
@@ -224,10 +224,10 @@ std::vector<Circle<float>> DetectReflectivePoles(
     angle = std::abs(angle_between(dir, bw_it->position.head<2>()));
     while (angle <= max_angle) {
       // assess candidate point
-      const float distance_to_circumference = std::abs(radius - (bw_it->position.head<2>() - position).norm());
+      const float distance_to_circumference =
+          std::abs(radius - (bw_it->position.head<2>() - position).norm());
 
-      if (distance_to_circumference < 2.f * radius)
-      {
+      if (distance_to_circumference < 2.f * radius) {
         mse += distance_to_circumference;
         count++;
         circle.points.push_back(bw_it->position.head<2>());

@@ -157,28 +157,26 @@ void Submap2D::InsertRangeData(
   set_num_range_data(num_range_data() + 1);
 }
 
-void Submap2D::InsertCircleFeatures(const std::vector<CircleFeature>& circle_features) {
-    CHECK(!insertion_finished());
-    for (const CircleFeature& feature : circle_features)
-    {
-        // TODO this could be made more performant with a spatial index if necessary
-        // data association
-        bool found = false;
-        for (CircleFeatureSmoother& s : circle_feature_smoothers_)
-        {
-            const float dist = (feature.keypoint.position - s.feature().keypoint.position).norm();
-            if (dist < 3.f * feature.fdescriptor.radius)
-            {
-               s.AddObservation(feature);
-               found = true;
-               break;
-            }
-        }
-        if (!found)
-        {
-            circle_feature_smoothers_.emplace_back(feature);
-        }
+void Submap2D::InsertCircleFeatures(
+    const std::vector<CircleFeature>& circle_features) {
+  CHECK(!insertion_finished());
+  for (const CircleFeature& feature : circle_features) {
+    // TODO this could be made more performant with a spatial index if necessary
+    // data association
+    bool found = false;
+    for (CircleFeatureSmoother& s : circle_feature_smoothers_) {
+      const float dist =
+          (feature.keypoint.position - s.feature().keypoint.position).norm();
+      if (dist < 3.f * feature.fdescriptor.radius) {
+        s.AddObservation(feature);
+        found = true;
+        break;
+      }
     }
+    if (!found) {
+      circle_feature_smoothers_.emplace_back(feature);
+    }
+  }
 }
 
 void Submap2D::Finish() {
@@ -187,10 +185,10 @@ void Submap2D::Finish() {
   grid_ = grid_->ComputeCroppedGrid();
 
   // set features
-  std::transform(circle_feature_smoothers_.begin(), circle_feature_smoothers_.end(),
-                 std::back_inserter(circle_features_), [](const CircleFeatureSmoother& s) {
-        return s.feature();
-  });
+  std::transform(circle_feature_smoothers_.begin(),
+                 circle_feature_smoothers_.end(),
+                 std::back_inserter(circle_features_),
+                 [](const CircleFeatureSmoother& s) { return s.feature(); });
   circle_feature_smoothers_.clear();
 
   set_insertion_finished(true);

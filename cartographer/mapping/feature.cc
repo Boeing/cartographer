@@ -12,10 +12,8 @@ proto::Keypoint ToProto(const Keypoint& feature) {
 }
 
 Keypoint FromProto(const proto::Keypoint& proto) {
-  return Keypoint{
-      transform::ToEigen(proto.position()),
-      transform::ToEigen(proto.covariance())
-  };
+  return Keypoint{transform::ToEigen(proto.position()),
+                  transform::ToEigen(proto.covariance())};
 }
 
 proto::CircleDescriptor ToProto(const CircleDescriptor& fdescriptor) {
