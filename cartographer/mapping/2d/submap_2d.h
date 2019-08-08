@@ -134,7 +134,7 @@ class Submap2D : public Submap {
     return circle_features_ = circle_features;
   }
 
-  const std::vector<CircleFeature> CircleFeatures() const {
+  const std::vector<CircleFeature>& CircleFeatures() const {
     return circle_features_;
   }
 
