@@ -78,7 +78,7 @@ class CircleFeatureSmoother {
 
     LOG(INFO) << " x: " << x.transpose() << " P: " << P.diagonal().transpose();
 
-    // measurement redisual
+    // measurement residual
     const Eigen::Vector2f V = z - H * x_1;
 
     // update state
