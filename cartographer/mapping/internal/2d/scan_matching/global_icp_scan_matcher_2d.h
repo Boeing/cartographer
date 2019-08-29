@@ -57,6 +57,7 @@ class GlobalICPScanMatcher2D {
 
   struct SamplePose {
     double score;
+    double inlier_fraction;
     double x;
     double y;
     double rotation;

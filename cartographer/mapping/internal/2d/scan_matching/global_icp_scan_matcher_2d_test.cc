@@ -100,6 +100,15 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
 
     auto p = raytraceLine(probability_grid, map_start.x(), map_start.y(),
                           map_end.x(), map_end.y(), cells, 30.f / resolution);
+
+    // Introduce some un-mapped short readings
+    if (i < 40) {
+      const auto short_p = probability_grid.limits().GetCellIndex(
+          inserted_pose.translation() + dir * 2.);
+      p.x = short_p.x();
+      p.y = short_p.y();
+    }
+
     if (p.x > 0 && p.y > 0) {
       const auto real_p = probability_grid.limits().GetCellCenter({p.x, p.y});
       const auto diff = real_p - inserted_pose.translation();
@@ -118,14 +127,16 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   icp_config.set_unmatched_feature_cost(1.0);
   icp_config.set_point_weight(1.0);
   icp_config.set_feature_weight(2.0);
+  icp_config.set_inlier_distance_threshold(1.0);
 
   proto::GlobalICPScanMatcherOptions2D global_icp_config;
-  global_icp_config.set_num_global_samples(1e3);
+  global_icp_config.set_num_global_samples(400);
   global_icp_config.set_num_global_rotations(16);
-  global_icp_config.set_proposal_max_score(1.5);
-  global_icp_config.set_min_cluster_size(3);
-  global_icp_config.set_min_cluster_distance(1.0);
-  global_icp_config.set_num_local_samples(200);
+  global_icp_config.set_proposal_max_score(1.0);
+  global_icp_config.set_proposal_min_inlier_fraction(0.4);
+  global_icp_config.set_min_cluster_size(2);
+  global_icp_config.set_min_cluster_distance(3.0);
+  global_icp_config.set_num_local_samples(100);
   global_icp_config.set_local_sample_linear_distance(0.2);
   global_icp_config.set_local_sample_angular_distance(0.2);
   *global_icp_config.mutable_icp_options() = icp_config;
@@ -135,11 +146,17 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
 
   GlobalICPScanMatcher2D global_icp_scan_matcher(submap, global_icp_config);
 
+  LOG(INFO) << "Match...";
   const auto match_result =
       global_icp_scan_matcher.Match(unperturbed_point_cloud);
 
+  LOG(INFO) << "Found " << match_result.poses.size() << " proposals";
+
+  LOG(INFO) << "DBScanCluster...";
   const auto clusters =
       global_icp_scan_matcher.DBScanCluster(match_result.poses);
+
+  LOG(INFO) << "Determined " << clusters.size() << " proposal clusters";
 
   double score = 0;
   transform::Rigid2d pose_estimate = transform::Rigid2d::Identity();
@@ -159,7 +176,7 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
               << " cost: " << icp_match.summary.final_cost
               << " score: " << icp_score;
 
-    LOG(INFO) << icp_match.summary.FullReport();
+    //    LOG(INFO) << icp_match.summary.FullReport();
 
     if (icp_score > score) {
       score = icp_score;

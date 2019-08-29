@@ -23,13 +23,14 @@ message GlobalICPScanMatcherOptions2D {
   int32 num_global_rotations = 2;
 
   double proposal_max_score = 3;
+  double proposal_min_inlier_fraction = 4;
 
-  int32 min_cluster_size = 4;
-  double min_cluster_distance = 5;
+  int32 min_cluster_size = 5;
+  double min_cluster_distance = 6;
 
-  int32 num_local_samples = 6;
-  double local_sample_linear_distance = 7;
-  double local_sample_angular_distance = 8;
+  int32 num_local_samples = 7;
+  double local_sample_linear_distance = 8;
+  double local_sample_angular_distance = 9;
 
-  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 9;
+  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 10;
 }
