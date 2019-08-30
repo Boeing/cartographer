@@ -27,4 +27,7 @@ message ICPScanMatcherOptions2D {
 
   double point_weight = 6;
   double feature_weight = 7;
+
+  // point pairs greater than this distance are not included in the optimisation
+  double inlier_distance_threshold = 8;
 }

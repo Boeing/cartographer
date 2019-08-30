@@ -10,8 +10,8 @@
 
 #include "cartographer/mapping/internal/2d/scan_matching/ray_trace.h"
 
-#include <vector>
 #include <random>
+#include <vector>
 
 #include "cartographer/common/time.h"
 #include "cartographer/mapping/2d/submap_2d.h"

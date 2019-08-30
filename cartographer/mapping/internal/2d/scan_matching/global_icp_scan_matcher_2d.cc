@@ -27,6 +27,9 @@ proto::GlobalICPScanMatcherOptions2D CreateGlobalICPScanMatcherOptions2D(
   options.set_proposal_max_score(
       parameter_dictionary->GetDouble("proposal_max_score"));
 
+  options.set_proposal_min_inlier_fraction(
+      parameter_dictionary->GetDouble("proposal_min_inlier_fraction"));
+
   options.set_min_cluster_size(
       parameter_dictionary->GetInt("min_cluster_size"));
   options.set_min_cluster_distance(
@@ -149,6 +152,7 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
     nanoflann::KNNResultSet<double> result_set(num_results);
     double query_pt[2];
 
+    size_t count = 0;
     for (std::size_t p = 0; p < scan_data.size(); ++p) {
       result_set.init(&ret_index, &out_dist_sqr);
       query_pt[0] =
@@ -157,21 +161,29 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
           sample_pose.y + static_cast<double>(scan_data[p].position.y());
       icp_solver_.kdtree().kdtree->findNeighbors(result_set, &query_pt[0],
                                                  nanoflann::SearchParams(10));
-      sample_pose.score += std::sqrt(out_dist_sqr);
+
+      const double d = std::sqrt(out_dist_sqr);
+      if (d < options_.proposal_max_score()) {
+        ++count;
+        sample_pose.score += std::sqrt(out_dist_sqr);
+      }
     }
-    sample_pose.score /= point_cloud.size();
+    sample_pose.inlier_fraction =
+        static_cast<double>(count) / static_cast<double>(point_cloud.size());
+    sample_pose.score /= static_cast<double>(count);
+    sample_pose.score /=
+        (sample_pose.inlier_fraction * sample_pose.inlier_fraction);
 
     samples.push(sample_pose);
   }
 
   Result result;
 
-  int i = 0;
   while (!samples.empty()) {
     if (samples.top().score > options_.proposal_max_score()) break;
-    result.poses.push_back(samples.top());
+    if (samples.top().inlier_fraction > options_.proposal_min_inlier_fraction())
+      result.poses.push_back(samples.top());
     samples.pop();
-    ++i;
   }
 
   return result;
@@ -205,6 +217,7 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
       nanoflann::KNNResultSet<double> result_set(num_results);
       double query_pt[2];
 
+      size_t count = 0;
       for (std::size_t p = 0; p < scan.scan_data.size(); ++p) {
         result_set.init(&ret_index, &out_dist_sqr);
         query_pt[0] = static_cast<double>(real_p.x()) +
@@ -213,9 +226,17 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
                       static_cast<double>(scan.scan_data[p].position.y());
         icp_solver_.kdtree().kdtree->findNeighbors(result_set, &query_pt[0],
                                                    nanoflann::SearchParams(10));
-        sample_pose.score += std::sqrt(out_dist_sqr);
+        const double d = std::sqrt(out_dist_sqr);
+        if (d < options_.proposal_max_score()) {
+          ++count;
+          sample_pose.score += std::sqrt(out_dist_sqr);
+        }
       }
-      sample_pose.score /= scan.scan_data.size();
+      sample_pose.inlier_fraction = static_cast<double>(count) /
+                                    static_cast<double>(scan.scan_data.size());
+      sample_pose.score /= static_cast<double>(count);
+      sample_pose.score /=
+          (sample_pose.inlier_fraction * sample_pose.inlier_fraction);
 
       samples.push(sample_pose);
     }
@@ -223,12 +244,11 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
 
   Result result;
 
-  int i = 0;
   while (!samples.empty()) {
     if (samples.top().score > options_.proposal_max_score()) break;
-    result.poses.push_back(samples.top());
+    if (samples.top().inlier_fraction > options_.proposal_min_inlier_fraction())
+      result.poses.push_back(samples.top());
     samples.pop();
-    ++i;
   }
 
   return result;
@@ -303,18 +323,25 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
       }
     }
 
-    // determine the best scoring pose
-    double min_score = std::numeric_limits<double>::max();
-    size_t min_p = 0;
+    // determine the weighted cluster center
+    cluster.x = 0;
+    cluster.y = 0;
+    double rotation_x = 0;
+    double rotation_y = 0;
+    double weights_sum = 0;
     for (std::size_t p = 0; p < cluster.poses.size(); ++p) {
-      if (cluster.poses[p].score < min_score) {
-        min_score = cluster.poses[p].score;
-        min_p = p;
-      }
+      const double weight = 1.0 / std::max(0.01, cluster.poses[p].score);
+      cluster.x += weight * cluster.poses[p].x;
+      cluster.y += weight * cluster.poses[p].y;
+      rotation_x += weight * std::cos(cluster.poses[p].rotation);
+      rotation_y += weight * std::sin(cluster.poses[p].rotation);
+      weights_sum += weight;
     }
-    cluster.x = cluster.poses[min_p].x;
-    cluster.y = cluster.poses[min_p].y;
-    cluster.rotation = cluster.poses[min_p].rotation;
+    cluster.x /= weights_sum;
+    cluster.y /= weights_sum;
+    rotation_x /= weights_sum;
+    rotation_y /= weights_sum;
+    cluster.rotation = std::atan2(rotation_y, rotation_x);
 
     clusters.push_back(cluster);
   }
