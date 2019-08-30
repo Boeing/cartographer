@@ -164,6 +164,7 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
 
   CHECK(!kdtree_.cells.cells.empty());
 
+  std::vector<size_t> included_points;
   {
     const size_t num_results = 1;
     size_t ret_index;
@@ -197,11 +198,14 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
             numeric_diff,
             new ceres::HuberLoss(options_.nearest_neighbour_point_huber_loss()),
             ceres_pose_estimate);
+
+        included_points.push_back(i);
       }
     }
   }
 
   Result result;
+  result.num_inlier_points = included_points.size();
 
   ceres::Solve(ceres_solver_options_, &problem, &result.summary);
 
@@ -214,9 +218,9 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
     double out_dist_sqr;
     double query_pt[2];
     nanoflann::KNNResultSet<double> result_set(num_results);
-    for (size_t i = 0; i < point_cloud.size(); ++i) {
-      const Eigen::Vector2d point(point_cloud[i].position.x(),
-                                  point_cloud[i].position.y());
+    for (size_t i = 0; i < included_points.size(); ++i) {
+      const Eigen::Vector2d point(point_cloud[included_points[i]].position.x(),
+                                  point_cloud[included_points[i]].position.y());
       const auto world = result.pose_estimate * point;
 
       result_set.init(&ret_index, &out_dist_sqr);

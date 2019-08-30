@@ -171,6 +171,8 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
     sample_pose.inlier_fraction =
         static_cast<double>(count) / static_cast<double>(point_cloud.size());
     sample_pose.score /= static_cast<double>(count);
+    sample_pose.score /=
+        (sample_pose.inlier_fraction * sample_pose.inlier_fraction);
 
     samples.push(sample_pose);
   }
@@ -233,6 +235,8 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
       sample_pose.inlier_fraction = static_cast<double>(count) /
                                     static_cast<double>(scan.scan_data.size());
       sample_pose.score /= static_cast<double>(count);
+      sample_pose.score /=
+          (sample_pose.inlier_fraction * sample_pose.inlier_fraction);
 
       samples.push(sample_pose);
     }
@@ -319,18 +323,25 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
       }
     }
 
-    // determine the best scoring pose
-    double min_score = std::numeric_limits<double>::max();
-    size_t min_p = 0;
+    // determine the weighted cluster center
+    cluster.x = 0;
+    cluster.y = 0;
+    double rotation_x = 0;
+    double rotation_y = 0;
+    double weights_sum = 0;
     for (std::size_t p = 0; p < cluster.poses.size(); ++p) {
-      if (cluster.poses[p].score < min_score) {
-        min_score = cluster.poses[p].score;
-        min_p = p;
-      }
+      const double weight = 1.0 / std::max(0.01, cluster.poses[p].score);
+      cluster.x += weight * cluster.poses[p].x;
+      cluster.y += weight * cluster.poses[p].y;
+      rotation_x += weight * std::cos(cluster.poses[p].rotation);
+      rotation_y += weight * std::sin(cluster.poses[p].rotation);
+      weights_sum += weight;
     }
-    cluster.x = cluster.poses[min_p].x;
-    cluster.y = cluster.poses[min_p].y;
-    cluster.rotation = cluster.poses[min_p].rotation;
+    cluster.x /= weights_sum;
+    cluster.y /= weights_sum;
+    rotation_x /= weights_sum;
+    rotation_y /= weights_sum;
+    cluster.rotation = std::atan2(rotation_y, rotation_x);
 
     clusters.push_back(cluster);
   }

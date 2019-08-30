@@ -35,6 +35,8 @@ class ICPScanMatcher2D {
     transform::Rigid2d pose_estimate;
     ceres::Solver::Summary summary;
 
+    size_t num_inlier_points;
+
     std::vector<std::pair<Eigen::Vector2d, Eigen::Vector2d>> pairs;
   };
 
