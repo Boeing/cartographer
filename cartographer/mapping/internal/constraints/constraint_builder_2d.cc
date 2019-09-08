@@ -205,7 +205,7 @@ void ConstraintBuilder2D::ComputeConstraint(
   if (match_full_submap) {
     kGlobalConstraintsSearchedMetric->Increment();
     match_result = submap_scan_matcher->global_icp_scan_matcher->Match(
-        constant_data.filtered_point_cloud);
+        constant_data.filtered_point_cloud, constant_data.circle_features);
   } else {
     kConstraintsSearchedMetric->Increment();
     match_result = submap_scan_matcher->global_icp_scan_matcher->Match(
@@ -252,7 +252,7 @@ void ConstraintBuilder2D::ComputeConstraint(
 
       int hit_count = 0;
 
-      const double max_distance = 3.0 * submap.grid()->limits().resolution();
+      const double max_distance = 6.0 * submap.grid()->limits().resolution();
       const double max_squared_distance = max_distance * max_distance;
 
       const size_t num_results = 1;
@@ -388,6 +388,8 @@ void ConstraintBuilder2D::ComputeConstraint(
       cairo_arc(cr, mp.x(), mp.y(), 16.0, 0, 2 * M_PI);
       auto dir = Eigen::Rotation2Df(cluster.poses.front().rotation) *
                  Eigen::Vector2f(10.0, 0);
+      cairo_stroke(cr);
+      cairo_new_path(cr);
       cairo_move_to(cr, mp.x(), mp.y());
       cairo_line_to(cr, mp.x() - dir.y(), mp.y() - dir.x());
       cairo_stroke(cr);
@@ -403,7 +405,6 @@ void ConstraintBuilder2D::ComputeConstraint(
         const auto _mp = grid->limits().GetCellIndex({pose.x, pose.y});
         cairo_set_source_rgba(cr, 0.2, c_g, c_b, 0.8);
         cairo_new_path(cr);
-        cairo_move_to(cr, _mp.x(), _mp.y());
         cairo_arc(cr, _mp.x(), _mp.y(), 14.0, 0, 2 * M_PI);
         cairo_stroke(cr);
       }
@@ -412,11 +413,14 @@ void ConstraintBuilder2D::ComputeConstraint(
     if (success) {
       cairo_set_source_rgba(cr, 0.5, 1.0, 0, 1);
       cairo_set_line_width(cr, 1.0);
+      cairo_new_path(cr);
       const auto mp = grid->limits().GetCellIndex(
           {pose_estimate.translation().x(), pose_estimate.translation().y()});
       cairo_arc(cr, mp.x(), mp.y(), 30.0, 0, 2 * M_PI);
       const auto dir =
           pose_estimate.rotation().cast<float>() * Eigen::Vector2f(30.0, 0);
+      cairo_stroke(cr);
+      cairo_new_path(cr);
       cairo_move_to(cr, mp.x(), mp.y());
       cairo_line_to(cr, mp.x() - dir.y(), mp.y() - dir.x());
       cairo_stroke(cr);
