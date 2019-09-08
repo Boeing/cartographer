@@ -192,21 +192,21 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
 
 GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
     const sensor::PointCloud& point_cloud,
-        const std::vector<CircleFeature>& features) {
+    const std::vector<CircleFeature>& features) {
   const std::vector<RotatedScan> rotated_scans = GenerateRotatedScans(
       point_cloud, static_cast<size_t>(options_.num_global_rotations()));
 
-  const double proposal_max_squared = options_.proposal_max_score() * options_.proposal_max_score();
+  const double proposal_max_squared =
+      options_.proposal_max_score() * options_.proposal_max_score();
 
-//  std::priority_queue<SamplePose, std::vector<SamplePose>,
-//                      SamplePoseMinHeapOperator>
-//      samples;
+  //  std::priority_queue<SamplePose, std::vector<SamplePose>,
+  //                      SamplePoseMinHeapOperator>
+  //      samples;
 
   Result result;
 
   int num_samples = options_.num_global_samples();
-  if (!features.empty())
-      num_samples *= 10;
+  if (!features.empty()) num_samples *= 10;
 
   for (int i = 0; i < options_.num_global_samples(); ++i) {
     const auto mp = sampler_.sample();
@@ -215,7 +215,8 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
     for (size_t r = 0; r < rotated_scans.size(); ++r) {
       const RotatedScan& scan = rotated_scans[r];
 
-      const Eigen::AngleAxisf rotation = Eigen::AngleAxisf(static_cast<float>(scan.rotation), Eigen::Vector3f::UnitZ());
+      const Eigen::AngleAxisf rotation = Eigen::AngleAxisf(
+          static_cast<float>(scan.rotation), Eigen::Vector3f::UnitZ());
 
       SamplePose sample_pose;
       sample_pose.score = 0.0;
@@ -224,82 +225,88 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
 
       // filter based on features
       {
-          const size_t num_results = 1;
-          size_t ret_index;
-          float out_dist_sqr;
-          nanoflann::KNNResultSet<float> result_set(num_results);
-          float query_pt[3];
+        const size_t num_results = 1;
+        size_t ret_index;
+        float out_dist_sqr;
+        nanoflann::KNNResultSet<float> result_set(num_results);
+        float query_pt[3];
 
-          for (std::size_t p = 0; p < features.size(); ++p) {
-            result_set.init(&ret_index, &out_dist_sqr);
-            const Eigen::Vector3f rotated_point = rotation * features[p].keypoint.position;
+        for (std::size_t p = 0; p < features.size(); ++p) {
+          result_set.init(&ret_index, &out_dist_sqr);
+          const Eigen::Vector3f rotated_point =
+              rotation * features[p].keypoint.position;
 
-            query_pt[0] = real_p.x() + rotated_point.x();
-            query_pt[1] = real_p.y() + rotated_point.y();
-            query_pt[2] = features[p].fdescriptor.radius;
-            icp_solver_.circle_feature_index().kdtree->findNeighbors(result_set, &query_pt[0], nanoflann::SearchParams(10));
-            sample_pose.feature_match_cost += static_cast<double>(std::sqrt(out_dist_sqr));
-          }
-          sample_pose.feature_match_cost /= features.size();
+          query_pt[0] = real_p.x() + rotated_point.x();
+          query_pt[1] = real_p.y() + rotated_point.y();
+          query_pt[2] = features[p].fdescriptor.radius;
+          icp_solver_.circle_feature_index().kdtree->findNeighbors(
+              result_set, &query_pt[0], nanoflann::SearchParams(10));
+          sample_pose.feature_match_cost +=
+              static_cast<double>(std::sqrt(out_dist_sqr));
+        }
+        sample_pose.feature_match_cost /= features.size();
       }
 
       // don't bother considering if the features are a bad match
       if (sample_pose.feature_match_cost > options_.proposal_max_score())
-          continue;
+        continue;
 
       // filter based on scan points
       {
-          const size_t num_results = 1;
-          size_t ret_index;
-          double out_dist_sqr;
-          nanoflann::KNNResultSet<double> result_set(num_results);
-          double query_pt[2];
+        const size_t num_results = 1;
+        size_t ret_index;
+        double out_dist_sqr;
+        nanoflann::KNNResultSet<double> result_set(num_results);
+        double query_pt[2];
 
-          size_t count = 0;
-          for (std::size_t p = 0; p < scan.scan_data.size(); ++p) {
-            result_set.init(&ret_index, &out_dist_sqr);
-            query_pt[0] = static_cast<double>(real_p.x()) +
-                          static_cast<double>(scan.scan_data[p].position.x());
-            query_pt[1] = static_cast<double>(real_p.y()) +
-                          static_cast<double>(scan.scan_data[p].position.y());
-            icp_solver_.kdtree().kdtree->findNeighbors(result_set, &query_pt[0],
-                                                       nanoflann::SearchParams(10));
-            if (out_dist_sqr < proposal_max_squared) {
-              ++count;
-              sample_pose.point_match_cost += std::sqrt(out_dist_sqr);
-            }
+        size_t count = 0;
+        for (std::size_t p = 0; p < scan.scan_data.size(); ++p) {
+          result_set.init(&ret_index, &out_dist_sqr);
+          query_pt[0] = static_cast<double>(real_p.x()) +
+                        static_cast<double>(scan.scan_data[p].position.x());
+          query_pt[1] = static_cast<double>(real_p.y()) +
+                        static_cast<double>(scan.scan_data[p].position.y());
+          icp_solver_.kdtree().kdtree->findNeighbors(
+              result_set, &query_pt[0], nanoflann::SearchParams(10));
+          if (out_dist_sqr < proposal_max_squared) {
+            ++count;
+            sample_pose.point_match_cost += std::sqrt(out_dist_sqr);
           }
-          sample_pose.inlier_fraction = static_cast<double>(count) /
-                                        static_cast<double>(scan.scan_data.size());
-          sample_pose.point_match_cost /= static_cast<double>(count);
-          sample_pose.point_match_cost /= (sample_pose.inlier_fraction * sample_pose.inlier_fraction);
+        }
+        sample_pose.inlier_fraction =
+            static_cast<double>(count) /
+            static_cast<double>(scan.scan_data.size());
+        sample_pose.point_match_cost /= static_cast<double>(count);
+        sample_pose.point_match_cost /=
+            (sample_pose.inlier_fraction * sample_pose.inlier_fraction);
       }
 
       // don't bother considering if the inlier fraction is low
       if (sample_pose.inlier_fraction < options_.proposal_min_inlier_fraction())
-          continue;
+        continue;
 
       // the final score is the average of features + scan
-      sample_pose.score = (sample_pose.feature_match_cost + sample_pose.point_match_cost) / 2.0;
+      sample_pose.score =
+          (sample_pose.feature_match_cost + sample_pose.point_match_cost) / 2.0;
 
       // don't bother considering if the score is bad
-      if (sample_pose.score > options_.proposal_max_score())
-          continue;
+      if (sample_pose.score > options_.proposal_max_score()) continue;
 
       sample_pose.rotation = scan.rotation;
       sample_pose.x = static_cast<double>(real_p.x());
       sample_pose.y = static_cast<double>(real_p.y());
 
-//      samples.push(sample_pose);
+      //      samples.push(sample_pose);
       result.poses.push_back(sample_pose);
     }
   }
 
-//  while (!samples.empty()) {
-//    if (samples.top().inlier_fraction > options_.proposal_min_inlier_fraction())
-//      result.poses.push_back(samples.top());
-//    samples.pop();
-//  }
+  //  while (!samples.empty()) {
+  //    if (samples.top().inlier_fraction >
+  //    options_.proposal_min_inlier_fraction())
+  //      result.poses.push_back(samples.top());
+  //    samples.pop();
+  //  }
 
   return result;
 }

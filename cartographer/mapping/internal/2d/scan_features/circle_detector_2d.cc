@@ -211,7 +211,8 @@ std::vector<Circle<float>> DetectReflectivePoles(
       if (distance_to_circumference < 2.f * radius) {
         mse += distance_to_circumference;
         count++;
-        circle_scan_points.push_back(static_cast<size_t>(std::distance(sorted_range_data.begin(), fw_it)));
+        circle_scan_points.push_back(static_cast<size_t>(
+            std::distance(sorted_range_data.begin(), fw_it)));
       }
 
       fw_it = advance_and_wrap(fw_it, sorted_range_data.begin(),
@@ -234,7 +235,8 @@ std::vector<Circle<float>> DetectReflectivePoles(
       if (distance_to_circumference < 2.f * radius) {
         mse += distance_to_circumference;
         count++;
-        circle_scan_points.push_back(static_cast<size_t>(std::distance(sorted_range_data.begin(), bw_it.base()) - 1));
+        circle_scan_points.push_back(static_cast<size_t>(
+            std::distance(sorted_range_data.begin(), bw_it.base()) - 1));
       }
 
       bw_it = advance_and_wrap(bw_it, sorted_range_data.rbegin(),
@@ -256,32 +258,34 @@ std::vector<Circle<float>> DetectReflectivePoles(
 
   std::vector<Circle<float>> clusters;
 
-  auto ComputeCluster = [circles, circles_scan_points, radius, sorted_range_data](const size_t start_i, const size_t end_i) {
+  auto ComputeCluster = [circles, circles_scan_points, radius,
+                         sorted_range_data](const size_t start_i,
+                                            const size_t end_i) {
     Circle<float> circle;
     circle.radius = radius;
     circle.position = Eigen::Matrix<float, 2, 1>::Zero();
     std::set<size_t> included_points;
     for (size_t j = start_i; j <= end_i; ++j) {
-        for (const size_t idx : circles_scan_points[j]) {
-            included_points.insert(idx);
-        }
+      for (const size_t idx : circles_scan_points[j]) {
+        included_points.insert(idx);
+      }
     }
     if (start_i != end_i) {
-        float weights_sum = 0.0;
-        for (size_t j = start_i; j <= end_i; ++j) {
-            circle.position += circles[j].mse * circles[j].position;
-            weights_sum += circles[j].mse;
-        }
-        circle.position /= weights_sum;
-    }
-    else {
-        circle.position = circles[start_i].position;
+      float weights_sum = 0.0;
+      for (size_t j = start_i; j <= end_i; ++j) {
+        circle.position += circles[j].mse * circles[j].position;
+        weights_sum += circles[j].mse;
+      }
+      circle.position /= weights_sum;
+    } else {
+      circle.position = circles[start_i].position;
     }
     for (const size_t idx : included_points) {
-        const auto scan_point = sorted_range_data[idx].position.head<2>();
-        circle.points.push_back(scan_point);
-        const float distance_to_circumference = std::abs(radius - (scan_point - circle.position).norm());
-        circle.mse += distance_to_circumference;
+      const auto scan_point = sorted_range_data[idx].position.head<2>();
+      circle.points.push_back(scan_point);
+      const float distance_to_circumference =
+          std::abs(radius - (scan_point - circle.position).norm());
+      circle.mse += distance_to_circumference;
     }
     circle.count = included_points.size();
     circle.mse /= static_cast<float>(included_points.size());
