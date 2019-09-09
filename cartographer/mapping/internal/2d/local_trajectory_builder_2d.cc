@@ -228,9 +228,10 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
     const auto pole_features =
         DetectReflectivePoles(range_data_wrt_tracking.returns, radius);
     for (const auto& f : pole_features) {
-      const auto p = FitCircle(f);
-      const float xy_covariance = std::sqrt(p.mse);
-      LOG(INFO) << "Found circle: " << p.position.transpose();
+      const auto p = f;  // FitCircle(f);
+      const float xy_covariance = p.mse * p.position.norm();
+      LOG(INFO) << "Found circle: " << p.position.transpose()
+                << " mse: " << p.mse << " xy_cov: " << xy_covariance;
       circle_features.push_back(
           CircleFeature{Keypoint{{p.position.x(), p.position.y(), 0.f},
                                  {xy_covariance, xy_covariance, 0.f}},

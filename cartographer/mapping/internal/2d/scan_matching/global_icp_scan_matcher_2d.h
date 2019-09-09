@@ -27,7 +27,9 @@ class EmptySpaceSampler {
   explicit EmptySpaceSampler(const Grid2D& grid)
       : gen_(42),
         free_cells_(FreeCells(grid)),
-        dist_(0, static_cast<int>(free_cells_.size() - 1)) {}
+        dist_(0, static_cast<int>(free_cells_.size() - 1)) {
+    CHECK(free_cells_.size() > 1);
+  }
   ~EmptySpaceSampler() = default;
 
   Eigen::Array2i sample() {
@@ -56,6 +58,8 @@ class GlobalICPScanMatcher2D {
   };
 
   struct SamplePose {
+    double feature_match_cost;
+    double point_match_cost;
     double score;
     double inlier_fraction;
     double x;
@@ -99,9 +103,11 @@ class GlobalICPScanMatcher2D {
   };
 
   Result Match(const transform::Rigid2d pose_estimate,
-               const sensor::PointCloud& point_cloud);
+               const sensor::PointCloud& point_cloud,
+               const std::vector<CircleFeature>& features = {});
 
-  Result Match(const sensor::PointCloud& point_cloud);
+  Result Match(const sensor::PointCloud& point_cloud,
+               const std::vector<CircleFeature>& features = {});
 
   std::vector<PoseCluster> DBScanCluster(const std::vector<SamplePose>& poses);
 

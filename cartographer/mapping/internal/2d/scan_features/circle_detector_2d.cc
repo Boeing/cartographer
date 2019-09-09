@@ -169,6 +169,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
             PointCloudSorter());
 
   std::vector<Circle<float>> circles;
+  std::vector<std::vector<size_t>> circles_scan_points;
 
   for (size_t i = 0; i < sorted_range_data.size(); ++i) {
     // assess every point
@@ -193,6 +194,9 @@ std::vector<Circle<float>> DetectReflectivePoles(
     Circle<float> circle;
     circle.radius = radius;
     circle.position = position;
+    std::vector<size_t> circle_scan_points;
+
+    circle_scan_points.push_back(i);
 
     // walk left
     auto fw_it = sorted_range_data.begin() + static_cast<int>(i);
@@ -207,7 +211,8 @@ std::vector<Circle<float>> DetectReflectivePoles(
       if (distance_to_circumference < 2.f * radius) {
         mse += distance_to_circumference;
         count++;
-        circle.points.push_back(fw_it->position.head<2>());
+        circle_scan_points.push_back(static_cast<size_t>(
+            std::distance(sorted_range_data.begin(), fw_it)));
       }
 
       fw_it = advance_and_wrap(fw_it, sorted_range_data.begin(),
@@ -230,7 +235,8 @@ std::vector<Circle<float>> DetectReflectivePoles(
       if (distance_to_circumference < 2.f * radius) {
         mse += distance_to_circumference;
         count++;
-        circle.points.push_back(bw_it->position.head<2>());
+        circle_scan_points.push_back(static_cast<size_t>(
+            std::distance(sorted_range_data.begin(), bw_it.base()) - 1));
       }
 
       bw_it = advance_and_wrap(bw_it, sorted_range_data.rbegin(),
@@ -240,10 +246,11 @@ std::vector<Circle<float>> DetectReflectivePoles(
 
     mse /= count;
 
-    if (count >= 3 && mse < radius * 1.f) {
+    if (count >= 3 && mse < radius * 0.5f) {
       circle.mse = mse;
       circle.count = count;
       circles.push_back(circle);
+      circles_scan_points.push_back(circle_scan_points);
     }
   }
 
@@ -251,16 +258,38 @@ std::vector<Circle<float>> DetectReflectivePoles(
 
   std::vector<Circle<float>> clusters;
 
-  auto ComputeCluster = [circles](const size_t start_i, const size_t end_i) {
-    size_t best_circle = start_i;
-    float best_mse = std::numeric_limits<float>::max();
+  auto ComputeCluster = [circles, circles_scan_points, radius,
+                         sorted_range_data](const size_t start_i,
+                                            const size_t end_i) {
+    Circle<float> circle;
+    circle.radius = radius;
+    circle.position = Eigen::Matrix<float, 2, 1>::Zero();
+    std::set<size_t> included_points;
     for (size_t j = start_i; j <= end_i; ++j) {
-      if (circles[j].mse < best_mse) {
-        best_circle = j;
-        best_mse = circles[j].mse;
+      for (const size_t idx : circles_scan_points[j]) {
+        included_points.insert(idx);
       }
     }
-    return circles[best_circle];
+    if (start_i != end_i) {
+      float weights_sum = 0.0;
+      for (size_t j = start_i; j <= end_i; ++j) {
+        circle.position += circles[j].mse * circles[j].position;
+        weights_sum += circles[j].mse;
+      }
+      circle.position /= weights_sum;
+    } else {
+      circle.position = circles[start_i].position;
+    }
+    for (const size_t idx : included_points) {
+      const auto scan_point = sorted_range_data[idx].position.head<2>();
+      circle.points.push_back(scan_point);
+      const float distance_to_circumference =
+          std::abs(radius - (scan_point - circle.position).norm());
+      circle.mse += distance_to_circumference;
+    }
+    circle.count = included_points.size();
+    circle.mse /= static_cast<float>(included_points.size());
+    return circle;
   };
 
   // cluster groups of circles
@@ -274,6 +303,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
     } else {
       clusters.push_back(ComputeCluster(start_i, end_i));
       start_i = i;
+      end_i = i;
     }
   }
   clusters.push_back(ComputeCluster(start_i, end_i));
@@ -853,6 +883,8 @@ y-coordinates Zi = Xi*Xi + Yi*Yi;
 Circle<float> FitCircle(const Circle<float>& circle) {
   // Algorithm from https://people.cas.uab.edu/~mosya/papers/cl1.pdf
   // Algebraic optimisation of the circle position
+
+  CHECK(!circle.points.empty());
 
   double a = static_cast<double>(circle.position.x());
   double b = static_cast<double>(circle.position.y());
