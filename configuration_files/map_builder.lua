@@ -20,7 +20,7 @@ MAP_BUILDER = {
             },
             global_icp_scan_matcher_options_2d = {
                 num_global_samples = 200,
-                num_global_rotations = 16,
+                num_global_rotations = 32,
                 proposal_max_score = 0.4,
                 proposal_min_inlier_fraction = 0.50,
                 min_cluster_size = 2,

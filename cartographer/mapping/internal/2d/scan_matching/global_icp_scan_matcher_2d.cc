@@ -188,7 +188,7 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
 bool GlobalICPScanMatcher2D::evaluateSample(
     SamplePose& sample_pose, const sensor::PointCloud& rotated_scan,
     const std::vector<CircleFeature>& features) {
-  sample_pose.score = 0.0;
+  sample_pose.score = std::numeric_limits<double>::max();
   sample_pose.feature_match_cost = 0.0;
   sample_pose.point_match_cost = 0.0;
 
@@ -222,7 +222,6 @@ bool GlobalICPScanMatcher2D::evaluateSample(
   // don't bother considering if the features are a bad match
   if (sample_pose.feature_match_cost > options_.proposal_max_score())
     return false;
-  ;
 
   // filter based on scan points
   {
