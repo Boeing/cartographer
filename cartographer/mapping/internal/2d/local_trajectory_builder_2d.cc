@@ -240,6 +240,7 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   }
   LOG(INFO) << "Found " << circle_features.size() << " circles";
 
+  // Transform features to local trajectory frame
   std::vector<CircleFeature> circle_features_in_local;
   std::transform(circle_features.begin(), circle_features.end(),
                  std::back_inserter(circle_features_in_local),

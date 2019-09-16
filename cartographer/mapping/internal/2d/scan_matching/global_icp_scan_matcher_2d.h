@@ -27,10 +27,10 @@ class EmptySpaceSampler {
   explicit EmptySpaceSampler(const Grid2D& grid)
       : gen_(42),
         free_cells_(FreeCells(grid)),
-        dist_(0, static_cast<int>(free_cells_.size() - 1)) {
-    CHECK(free_cells_.size() > 1);
-  }
+        dist_(0, static_cast<int>(free_cells_.size() - 1)) {}
   ~EmptySpaceSampler() = default;
+
+  std::size_t size() { return free_cells_.size(); }
 
   Eigen::Array2i sample() {
     return free_cells_[static_cast<std::size_t>(dist_(gen_))];
@@ -114,6 +114,10 @@ class GlobalICPScanMatcher2D {
   const ICPScanMatcher2D& IcpSolver() const { return icp_solver_; }
 
  private:
+  bool evaluateSample(SamplePose& sample_pose,
+                      const sensor::PointCloud& rotated_scan,
+                      const std::vector<CircleFeature>& features);
+
   const proto::GlobalICPScanMatcherOptions2D options_;
   const MapLimits limits_;
   EmptySpaceSampler sampler_;

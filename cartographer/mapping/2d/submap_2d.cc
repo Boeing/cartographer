@@ -161,7 +161,7 @@ void Submap2D::InsertCircleFeatures(
     const std::vector<CircleFeature>& circle_features) {
   CHECK(!insertion_finished());
   for (const CircleFeature& feature : circle_features) {
-    // TODO this could be made more performant with a spatial index if necessary
+    // TODO this could be made more preformat with a spatial index if necessary
     // data association
     bool found = false;
     for (CircleFeatureSmoother& s : circle_feature_smoothers_) {

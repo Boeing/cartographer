@@ -1,10 +1,10 @@
 MAP_BUILDER = {
-    num_background_threads = 4,
+    num_background_threads = 1,
     pose_graph = {
         optimize_every_n_nodes = 1,
         constraint_builder = {
             min_local_search_score = 0.40,
-            min_global_search_score = 0.40,
+            min_global_search_score = 0.50,
             constraint_translation_weight = 1.1e4,
             constraint_rotation_weight = 1e5,
             log_matches = true,
@@ -19,12 +19,13 @@ MAP_BUILDER = {
                 },
             },
             global_icp_scan_matcher_options_2d = {
-                num_global_samples = 400,
+                num_global_samples = 200,
                 num_global_rotations = 16,
-                proposal_max_score = 1.0,
+                proposal_max_score = 0.4,
+                proposal_min_inlier_fraction = 0.50,
                 min_cluster_size = 2,
-                min_cluster_distance = 3.0,
-                num_local_samples = 100,
+                min_cluster_distance = 0.5,
+                num_local_samples = 40,
                 local_sample_linear_distance = 0.2,
                 local_sample_angular_distance = 0.2,
                 icp_options = {
@@ -32,13 +33,14 @@ MAP_BUILDER = {
                     nearest_neighbour_feature_huber_loss = 0.01,
                     point_pair_point_huber_loss = 0.01,
                     point_pair_feature_huber_loss = 0.01,
-                    unmatched_feature_cost = 1.0,
+                    unmatched_feature_cost = 0.00001,
                     point_weight = 1.0,
                     feature_weight = 2.0,
+                    inlier_distance_threshold = 1.0,
                 }
             },
-            min_icp_score = 0.95,
-            min_scan_agreement_fraction = 0.40,
+            min_icp_score = 0.98,
+            min_scan_agreement_fraction = 0.50,
         },
 
         -- used when adding intra submap constraints
