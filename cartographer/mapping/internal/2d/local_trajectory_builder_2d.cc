@@ -45,48 +45,12 @@ LocalTrajectoryBuilder2D::LocalTrajectoryBuilder2D(
       real_time_correlative_scan_matcher_(
           options_.real_time_correlative_scan_matcher_options()),
       ceres_scan_matcher_(options_.ceres_scan_matcher_options()),
-      range_data_collator_(expected_range_sensor_ids) {}
+      range_data_collator_(expected_range_sensor_ids) {
+  extrapolator_ = absl::make_unique<PoseExtrapolator>();
+  extrapolator_->AddPose(common::Time::min(), transform::Rigid3d::Identity());
+}
 
 LocalTrajectoryBuilder2D::~LocalTrajectoryBuilder2D() {}
-
-std::unique_ptr<transform::Rigid2d> LocalTrajectoryBuilder2D::ScanMatch(
-    const common::Time time, const transform::Rigid2d& pose_prediction,
-    const sensor::PointCloud& filtered_gravity_aligned_point_cloud) {
-  if (active_submaps_.submaps().empty()) {
-    return absl::make_unique<transform::Rigid2d>(pose_prediction);
-  }
-  std::shared_ptr<const Submap2D> matching_submap =
-      active_submaps_.submaps().front();
-  // The online correlative scan matcher will refine the initial estimate for
-  // the Ceres scan matcher.
-  transform::Rigid2d initial_ceres_pose = pose_prediction;
-
-  if (options_.use_online_correlative_scan_matching()) {
-    const double score = real_time_correlative_scan_matcher_.Match(
-        pose_prediction, filtered_gravity_aligned_point_cloud,
-        *matching_submap->grid(), &initial_ceres_pose);
-    kRealTimeCorrelativeScanMatcherScoreMetric->Observe(score);
-  }
-
-  auto pose_observation = absl::make_unique<transform::Rigid2d>();
-  ceres::Solver::Summary summary;
-  ceres_scan_matcher_.Match(pose_prediction.translation(), initial_ceres_pose,
-                            filtered_gravity_aligned_point_cloud,
-                            *matching_submap->grid(), pose_observation.get(),
-                            &summary);
-  if (pose_observation) {
-    kCeresScanMatcherCostMetric->Observe(summary.final_cost);
-    const double residual_distance =
-        (pose_observation->translation() - pose_prediction.translation())
-            .norm();
-    kScanMatcherResidualDistanceMetric->Observe(residual_distance);
-    const double residual_angle =
-        std::abs(pose_observation->rotation().angle() -
-                 pose_prediction.rotation().angle());
-    kScanMatcherResidualAngleMetric->Observe(residual_angle);
-  }
-  return pose_observation;
-}
 
 std::unique_ptr<LocalTrajectoryBuilder2D::MatchingResult>
 LocalTrajectoryBuilder2D::AddRangeData(
@@ -105,21 +69,17 @@ LocalTrajectoryBuilder2D::AddRangeData(
       common::FromSeconds(synchronized_data.ranges.front().point_time.time);
 
   CHECK(start_time <= time);
+  CHECK(!options_.use_imu_data());
 
-  if (!options_.use_imu_data()) InitializeExtrapolator(start_time);
-
-  if (extrapolator_ == nullptr) return nullptr;
+  const auto pose_prediction = extrapolator_->ExtrapolatePose(time);
 
   std::vector<transform::Rigid3f> range_data_poses;
   range_data_poses.reserve(synchronized_data.ranges.size());
   for (const auto& range : synchronized_data.ranges) {
     common::Time time_point = time + common::FromSeconds(range.point_time.time);
     range_data_poses.push_back(
-        extrapolator_->ExtrapolatePose(time_point).cast<float>());
+        extrapolator_->ExtrapolatePose(time_point).pose.cast<float>());
   }
-
-  const transform::Rigid3d pose_prediction =
-      extrapolator_->ExtrapolatePose(time);
 
   if (num_accumulated_ == 0) {
     // 'accumulated_range_data_.origin' is uninitialized until the last
@@ -162,12 +122,13 @@ LocalTrajectoryBuilder2D::AddRangeData(
     num_accumulated_ = 0;
 
     accumulated_range_data_.origin =
-        pose_prediction.translation().cast<float>();
+        pose_prediction.pose.translation().cast<float>();
 
     const auto range_data_wrt_tracking = sensor::TransformRangeData(
-        accumulated_range_data_, pose_prediction.inverse().cast<float>());
+        accumulated_range_data_, pose_prediction.pose.inverse().cast<float>());
     const auto cropped = sensor::CropRangeData(
         range_data_wrt_tracking, options_.min_z(), options_.max_z());
+
     const auto voxel_filtered =
         sensor::RangeData{cropped.origin,
                           sensor::VoxelFilter(options_.voxel_filter_size())
@@ -183,13 +144,14 @@ LocalTrajectoryBuilder2D::AddRangeData(
 
 std::unique_ptr<LocalTrajectoryBuilder2D::MatchingResult>
 LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
-    const common::Time time, const transform::Rigid3d& pose_prediction,
+    const common::Time time,
+    const PoseExtrapolator::Extrapolation& pose_prediction,
     const sensor::RangeData& range_data_wrt_tracking,
     const absl::optional<common::Duration>& sensor_duration) {
   CHECK(!range_data_wrt_tracking.returns.empty());
 
   const transform::Rigid2d pose_prediction_2d =
-      transform::Project2D(pose_prediction);
+      transform::Project2D(pose_prediction.pose);
 
   const sensor::PointCloud& adaptive_filtered =
       sensor::AdaptiveVoxelFilter(options_.adaptive_voxel_filter_options())
@@ -197,48 +159,86 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
 
   if (adaptive_filtered.empty()) return nullptr;
 
-  const std::unique_ptr<transform::Rigid2d> pose_estimate_2d =
-      ScanMatch(time, pose_prediction_2d, adaptive_filtered);
+  transform::Rigid2d pose_estimate_2d = pose_prediction_2d;
 
-  if (pose_estimate_2d == nullptr) {
-    LOG(WARNING) << "Scan matching failed.";
-    return nullptr;
+  // The first submap needs a minimum amount of range data before a scan match
+  // will be accurate
+  const int min_num_range_data = 10;
+  const bool submap_init =
+      !active_submaps_.submaps().empty() &&
+      active_submaps_.submaps().front()->num_range_data() > min_num_range_data;
+
+  // scan match
+  if (submap_init) {
+    std::shared_ptr<const Submap2D> matching_submap =
+        active_submaps_.submaps().front();
+
+    // The online correlative scan matcher will refine the initial estimate for
+    // the Ceres scan matcher
+    transform::Rigid2d initial_ceres_pose = pose_prediction_2d;
+    if (options_.use_online_correlative_scan_matching()) {
+      const double score = real_time_correlative_scan_matcher_.Match(
+          pose_prediction_2d, adaptive_filtered, *matching_submap->grid(),
+          &initial_ceres_pose);
+      kRealTimeCorrelativeScanMatcherScoreMetric->Observe(score);
+    }
+
+    transform::Rigid2d pose_observation;
+    ceres::Solver::Summary summary;
+    ceres_scan_matcher_.Match(
+        pose_prediction_2d.translation(), initial_ceres_pose, adaptive_filtered,
+        *matching_submap->grid(), &pose_observation, &summary);
+    {
+      kCeresScanMatcherCostMetric->Observe(summary.final_cost);
+      const double residual_distance =
+          (pose_observation.translation() - pose_prediction_2d.translation())
+              .norm();
+      kScanMatcherResidualDistanceMetric->Observe(residual_distance);
+      const double residual_angle =
+          std::abs(pose_observation.rotation().angle() -
+                   pose_prediction_2d.rotation().angle());
+      kScanMatcherResidualAngleMetric->Observe(residual_angle);
+    }
+    pose_estimate_2d = pose_observation;
   }
 
-  //  const auto scan_match_shift = pose_prediction_2d.inverse() *
-  //  *pose_estimate_2d; LOG(INFO) << "ScanMatch: " << scan_match_shift;
+  const auto scan_match_shift = pose_prediction_2d.inverse() * pose_estimate_2d;
 
-  const transform::Rigid3d pose_estimate =
-      transform::Embed3D(*pose_estimate_2d);
+  const transform::Rigid3d pose_estimate = transform::Embed3D(pose_estimate_2d);
+
+  if (scan_match_shift.translation().norm() > 0.01) {
+    LOG(WARNING) << "Excessive scan match shift: "
+                 << scan_match_shift.translation().transpose();
+  }
 
   extrapolator_->AddPose(time, pose_estimate);
 
-  if (motion_filter_.IsSimilar(time, pose_estimate)) {
+  const bool is_similar = motion_filter_.IsSimilar(time, pose_estimate);
+  if (submap_init && is_similar) {
     return nullptr;
   }
 
   const auto range_data_in_local =
       TransformRangeData(range_data_wrt_tracking,
-                         transform::Embed3D(pose_estimate_2d->cast<float>()));
+                         transform::Embed3D(pose_estimate_2d.cast<float>()));
 
   // Detect features
   std::vector<CircleFeature> circle_features;
   for (const auto radius : options_.circle_feature_options().detect_radii()) {
-    LOG(INFO) << "Searching for circles of radius: " << radius;
+    //    LOG(INFO) << "Searching for circles of radius: " << radius;
     const auto pole_features =
         DetectReflectivePoles(range_data_wrt_tracking.returns, radius);
     for (const auto& f : pole_features) {
-      const auto p = f;  // FitCircle(f);
+      const auto p = f;
       const float xy_covariance = p.mse * p.position.norm();
-      LOG(INFO) << "Found circle: " << p.position.transpose()
-                << " mse: " << p.mse << " xy_cov: " << xy_covariance;
+      //      LOG(INFO) << "Found circle: " << p.position.transpose() << " mse:
+      //      " << p.mse << " xy_cov: " << xy_covariance;
       circle_features.push_back(
           CircleFeature{Keypoint{{p.position.x(), p.position.y(), 0.f},
                                  {xy_covariance, xy_covariance, 0.f}},
                         CircleDescriptor{p.mse, p.radius}});
     }
   }
-  LOG(INFO) << "Found " << circle_features.size() << " circles";
 
   // Transform features to local trajectory frame
   std::vector<CircleFeature> circle_features_in_local;
@@ -254,6 +254,10 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   std::vector<std::shared_ptr<const Submap2D>> insertion_submaps =
       active_submaps_.InsertRangeData(range_data_in_local,
                                       circle_features_in_local);
+
+  if (is_similar) {
+    return nullptr;
+  }
 
   auto insertion_result = absl::make_unique<InsertionResult>(InsertionResult{
       std::make_shared<const TrajectoryNode::Data>(
@@ -287,35 +291,14 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
       MatchingResult{time, pose_estimate, std::move(insertion_result)});
 }
 
-void LocalTrajectoryBuilder2D::AddImuData(const sensor::ImuData& imu_data) {
+void LocalTrajectoryBuilder2D::AddImuData(const sensor::ImuData&) {
   CHECK(options_.use_imu_data()) << "An unexpected IMU packet was added.";
-  InitializeExtrapolator(imu_data.time);
-  extrapolator_->AddImuData(imu_data);
+  LOG(FATAL) << "Imu Data is not supported";
 }
 
 void LocalTrajectoryBuilder2D::AddOdometryData(
     const sensor::OdometryData& odometry_data) {
-  if (extrapolator_ == nullptr) {
-    // Until we've initialized the extrapolator we cannot add odometry data.
-    LOG(INFO) << "Extrapolator not yet initialized.";
-    return;
-  }
   extrapolator_->AddOdometryData(odometry_data);
-}
-
-void LocalTrajectoryBuilder2D::InitializeExtrapolator(const common::Time time) {
-  if (extrapolator_ != nullptr) {
-    return;
-  }
-  // We derive velocities from poses which are at least 1 ms apart for numerical
-  // stability. Usually poses known to the extrapolator will be further apart
-  // in time and thus the last two are used.
-  constexpr double kExtrapolationEstimationTimeSec = 0.001;
-  // TODO(gaschler): Consider using InitializeWithImu as 3D does.
-  extrapolator_ = absl::make_unique<PoseExtrapolator>(
-      ::cartographer::common::FromSeconds(kExtrapolationEstimationTimeSec),
-      options_.imu_gravity_time_constant());
-  extrapolator_->AddPose(time, transform::Rigid3d::Identity());
 }
 
 void LocalTrajectoryBuilder2D::RegisterMetrics(

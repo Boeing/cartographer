@@ -74,9 +74,9 @@ class CircleFeatureSmoother {
     // measurement
     const Eigen::Vector2f z = feature.keypoint.position.head<2>();
 
-    LOG(INFO) << "AddObservation: z: " << z.transpose();
-
-    LOG(INFO) << " x: " << x.transpose() << " P: " << P.diagonal().transpose();
+    //    LOG(INFO) << "AddObservation: z: " << z.transpose();
+    //    LOG(INFO) << " x: " << x.transpose() << " P: " <<
+    //    P.diagonal().transpose();
 
     // measurement residual
     const Eigen::Vector2f V = z - H * x_1;
@@ -87,7 +87,8 @@ class CircleFeatureSmoother {
     // update state covariance
     P = (Eigen::Matrix<float, 2, 2>::Identity() - K * H) * P;
 
-    LOG(INFO) << " x: " << x.transpose() << " P: " << P.diagonal().transpose();
+    //    LOG(INFO) << " x: " << x.transpose() << " P: " <<
+    //    P.diagonal().transpose();
   }
 
  private:
