@@ -37,7 +37,7 @@ void PoseExtrapolator::AddPose(const common::Time time,
   while (timed_pose_queue_.size() > 1) {
     timed_pose_queue_.pop_front();
   }
-  while (timed_pose_queue_.size() > 2 &&
+  while (odometry_data_.size() > 2 &&
          odometry_data_[2].time < timed_pose_queue_.back().time) {
     odometry_data_.pop_front();
   }
@@ -78,8 +78,6 @@ PoseExtrapolator::Extrapolation PoseExtrapolator::ExtrapolatePose(
                      << " (earliest: " << odometry_data.front().time << ")";
         odom = it->pose;
       } else if (it == odometry_data.end()) {
-        LOG(WARNING) << "No odometry data for time: " << time
-                     << " (latest: " << odometry_data.back().time << ")";
         auto prev_it = it - 1;
         const double t_diff = common::ToSeconds(time - prev_it->time);
         const Eigen::Quaterniond rot =
