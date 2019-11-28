@@ -37,8 +37,8 @@ void PoseExtrapolator::AddPose(const common::Time time,
   while (timed_pose_queue_.size() > 1) {
     timed_pose_queue_.pop_front();
   }
-  while (odometry_data_.size() > 2 &&
-         odometry_data_[2].time < timed_pose_queue_.back().time) {
+  // only keep a max number of odom messages
+  while (odometry_data_.size() > 2000) {
     odometry_data_.pop_front();
   }
 }
