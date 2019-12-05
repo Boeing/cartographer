@@ -22,9 +22,9 @@ Modified for fast robust 2D SLAM for factory environments.
   - Desired number of constraints per submap / trajectory
   - Maximum work queue size
 
-**How to Build**
+## How to Build
 
-# Build protobuf
+**Build protobuf**
 ```bash
 cd /home/boeing/git
 git clone https://github.com/protocolbuffers/protobuf.git
@@ -37,10 +37,10 @@ ninja
 make install
 ```
 
-# Build cartographer
-# You need to provide the path to an Abseil tar `ABSEIL_TAR_PATH`
-# You need to provide the correct version of protobuf on `CMAKE_PREFIX_PATH`
-```
+**Build cartographer**
+You need to provide the path to an Abseil tar `ABSEIL_TAR_PATH`
+You need to provide the correct version of protobuf on `CMAKE_PREFIX_PATH`
+```bash
 cd cartographer
 mkdir build
 cd build
@@ -49,9 +49,10 @@ make -j8
 make install
 ```
 
-# For development of cartographer
-# Modify `cartographer_ros` cmake to point to the install path for cartographer
-```CMakeLists.txt
+**For development of cartographer**
+Modify `cartographer_ros` cmake to point to the install path for cartographer
+CMakeLists.txt
+```
 # Remove the `externalproject_add`
 
 # Cartographer
