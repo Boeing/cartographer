@@ -89,7 +89,10 @@ class CircleFeatureSmoother {
 
     //    LOG(INFO) << " x: " << x.transpose() << " P: " <<
     //    P.diagonal().transpose();
+    observations_count++;
   }
+
+  int observations_count = 0;
 
  private:
   Eigen::Vector2f x;
@@ -109,7 +112,9 @@ class CircleFeatureSmoother {
 class Submap2D : public Submap {
  public:
   Submap2D(const Eigen::Vector2f& origin, std::unique_ptr<Grid2D> grid,
-           ValueConversionTables* conversion_tables);
+           ValueConversionTables* conversion_tables,
+           const proto::SubmapsOptions2D options);
+
   explicit Submap2D(const proto::Submap2D& proto,
                     ValueConversionTables* conversion_tables);
 
@@ -145,6 +150,7 @@ class Submap2D : public Submap {
 
   std::unique_ptr<Grid2D> grid_;
   ValueConversionTables* conversion_tables_;
+  const proto::SubmapsOptions2D options_;
 };
 
 }  // namespace mapping

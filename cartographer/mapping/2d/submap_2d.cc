@@ -78,10 +78,12 @@ proto::SubmapsOptions2D CreateSubmapsOptions2D(
 }
 
 Submap2D::Submap2D(const Eigen::Vector2f& origin, std::unique_ptr<Grid2D> grid,
-                   ValueConversionTables* conversion_tables)
+                   ValueConversionTables* conversion_tables,
+                   const proto::SubmapsOptions2D options)
     : Submap(transform::Rigid3d::Translation(
           Eigen::Vector3d(origin.x(), origin.y(), 0.))),
-      conversion_tables_(conversion_tables) {
+      conversion_tables_(conversion_tables),
+      options_(options) {
   grid_ = std::move(grid);
 }
 
