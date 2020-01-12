@@ -31,6 +31,9 @@ message GlobalICPScanMatcherOptions2D {
   int32 num_local_samples = 7;
   double local_sample_linear_distance = 8;
   double local_sample_angular_distance = 9;
+  
+  double proposal_features_weight = 10;
+  double proposal_points_weight = 11;
 
-  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 10;
+  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 12;
 }

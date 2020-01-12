@@ -43,6 +43,12 @@ proto::GlobalICPScanMatcherOptions2D CreateGlobalICPScanMatcherOptions2D(
   options.set_local_sample_angular_distance(
       parameter_dictionary->GetDouble("local_sample_angular_distance"));
 
+  options.set_proposal_features_weight(
+      parameter_dictionary->GetDouble("proposal_features_weight"));
+
+  options.set_proposal_points_weight(
+      parameter_dictionary->GetDouble("proposal_points_weight"));
+
   *options.mutable_icp_options() = scan_matching::CreateICPScanMatcherOptions2D(
       parameter_dictionary->GetDictionary("icp_options").get());
   return options;
@@ -264,10 +270,13 @@ bool GlobalICPScanMatcher2D::evaluateSample(
     return false;
 
   // the final score is the average of features + scan
-  if (sample_pose.feature_match_cost > 0)
+  if (sample_pose.feature_match_cost > 0) {
     sample_pose.score =
-        (sample_pose.feature_match_cost + sample_pose.point_match_cost) / 2.0;
-  else
+        (options_.proposal_features_weight() * sample_pose.feature_match_cost +
+         options_.proposal_points_weight() * sample_pose.point_match_cost) /
+        (options_.proposal_features_weight() +
+         options_.proposal_points_weight());
+  } else
     sample_pose.score = sample_pose.point_match_cost;
 
   // don't bother considering if the score is bad
