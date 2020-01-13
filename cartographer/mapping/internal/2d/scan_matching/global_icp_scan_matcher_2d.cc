@@ -1,4 +1,6 @@
 #include "cartographer/mapping/internal/2d/scan_matching/global_icp_scan_matcher_2d.h"
+#include "cartographer/mapping/2d/probability_grid.h"
+#include "cartographer/mapping/internal/2d/scan_matching/ray_trace.h"
 
 #include <queue>
 #include <utility>
@@ -42,6 +44,9 @@ proto::GlobalICPScanMatcherOptions2D CreateGlobalICPScanMatcherOptions2D(
       parameter_dictionary->GetDouble("local_sample_linear_distance"));
   options.set_local_sample_angular_distance(
       parameter_dictionary->GetDouble("local_sample_angular_distance"));
+
+  options.set_raytracing_max_distance(
+      parameter_dictionary->GetDouble("raytracing_max_distance"));
 
   options.set_proposal_features_weight(
       parameter_dictionary->GetDouble("proposal_features_weight"));
@@ -103,7 +108,8 @@ std::vector<Eigen::Array2i> FreeCells(const Grid2D& grid) {
 
 GlobalICPScanMatcher2D::GlobalICPScanMatcher2D(
     const Submap2D& submap, const proto::GlobalICPScanMatcherOptions2D& options)
-    : options_(options),
+    : submap_(submap),
+      options_(options),
       limits_(submap.grid()->limits()),
       sampler_(*submap.grid()),
       icp_solver_(submap, options_.icp_options()) {
@@ -250,8 +256,37 @@ bool GlobalICPScanMatcher2D::evaluateSample(
       icp_solver_.kdtree().kdtree->findNeighbors(result_set, &query_pt[0],
                                                  nanoflann::SearchParams(10));
       if (out_dist_sqr < proposal_max_squared) {
-        ++count;
-        sample_pose.point_match_cost += std::sqrt(out_dist_sqr);
+        const transform::Rigid2d src_pt({sample_pose.x, sample_pose.y}, 0);
+        const transform::Rigid2d tgt_pt({query_pt[0], query_pt[1]}, 0);
+
+        auto pg =
+            dynamic_cast<const mapping::ProbabilityGrid*>(submap().grid());
+
+        const auto mp_start =
+            pg->limits().GetCellIndex(src_pt.translation().cast<float>());
+
+        const auto mp_end =
+            pg->limits().GetCellIndex(tgt_pt.translation().cast<float>());
+
+        const auto p = mapping::scan_matching::raytraceLine(
+            *pg, mp_start.x(), mp_start.y(), mp_end.x(), mp_end.y(),
+            pg->limits().cell_limits().num_x_cells);
+
+        // Consider point as valid if it is not behind occupied space
+        if (p.x != -1 && p.y != -1) {
+          Eigen::Vector2f inter =
+              pg->limits().GetCellCenter(Eigen::Array2i(p.x, p.y));
+          double dist_from_end =
+              Eigen::Vector2f(query_pt[0] - inter[0], query_pt[1] - inter[1])
+                  .norm();
+          if (dist_from_end < options_.raytracing_max_distance()) {
+            ++count;
+            sample_pose.point_match_cost += std::sqrt(out_dist_sqr);
+          }
+        } else {
+          ++count;
+          sample_pose.point_match_cost += std::sqrt(out_dist_sqr);
+        }
       }
     }
 

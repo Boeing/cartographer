@@ -113,7 +113,11 @@ class GlobalICPScanMatcher2D {
 
   const ICPScanMatcher2D& IcpSolver() const { return icp_solver_; }
 
+  const Submap2D& submap() const { return submap_; }
+
  private:
+  const Submap2D& submap_;
+
   bool evaluateSample(SamplePose& sample_pose,
                       const sensor::PointCloud& rotated_scan,
                       const std::vector<CircleFeature>& features);
