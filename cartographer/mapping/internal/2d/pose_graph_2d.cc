@@ -264,6 +264,8 @@ WorkItem::Result PoseGraph2D::ComputeConstraintsForNode(
   MapById<SubmapId, size_t> local_inter_constraint_count;
   MapById<SubmapId, size_t> global_inter_constraint_count;
 
+  bool force_optimization = false;
+
   {
     absl::MutexLock locker(&mutex_);
     const auto& constant_data =
@@ -400,6 +402,12 @@ WorkItem::Result PoseGraph2D::ComputeConstraintsForNode(
               << " submap_global: " << current_submap_global_constraint_count
               << " trajectory_global: " << traj_global_constraint_count;
 
+    const bool globally_localized =
+        static_cast<int>(traj_global_constraint_count) >=
+        options_.min_globally_searched_constraints_for_trajectory();
+
+    force_optimization = !globally_localized;
+
     // Only search for constraints if not already busy
     if (static_cast<int>(work_queue_size) < options_.max_work_queue_size()) {
       for (const auto& submap_id : finished_submap_ids) {
@@ -416,9 +424,6 @@ WorkItem::Result PoseGraph2D::ComputeConstraintsForNode(
           continue;
         }
 
-        const bool globally_localized =
-            static_cast<int>(traj_global_constraint_count) >=
-            options_.min_globally_searched_constraints_for_trajectory();
         const bool local_search = local_submap || globally_localized;
 
         if (local_search) {
@@ -466,8 +471,10 @@ WorkItem::Result PoseGraph2D::ComputeConstraintsForNode(
   absl::MutexLock locker(&mutex_);
   ++num_nodes_since_last_loop_closure_;
 
-  if (options_.optimize_every_n_nodes() > 0 &&
-      num_nodes_since_last_loop_closure_ >= options_.optimize_every_n_nodes()) {
+  if ((options_.optimize_every_n_nodes() > 0 &&
+       num_nodes_since_last_loop_closure_ >=
+           options_.optimize_every_n_nodes()) ||
+      force_optimization) {
     return WorkItem::Result::kRunOptimization;
   }
   return WorkItem::Result::kDoNotRunOptimization;
