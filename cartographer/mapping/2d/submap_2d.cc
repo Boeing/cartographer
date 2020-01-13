@@ -41,6 +41,13 @@ proto::SubmapsOptions2D CreateSubmapsOptions2D(
   proto::SubmapsOptions2D options;
   options.set_num_range_data(
       parameter_dictionary->GetNonNegativeInt("num_range_data"));
+
+  options.set_min_feature_observations(
+      parameter_dictionary->GetNonNegativeInt("min_feature_observations"));
+
+  options.set_max_feature_score(
+      parameter_dictionary->GetDouble("max_feature_score"));
+
   *options.mutable_grid_options_2d() = CreateGridOptions2D(
       parameter_dictionary->GetDictionary("grid_options_2d").get());
   *options.mutable_range_data_inserter_options() =
@@ -71,10 +78,12 @@ proto::SubmapsOptions2D CreateSubmapsOptions2D(
 }
 
 Submap2D::Submap2D(const Eigen::Vector2f& origin, std::unique_ptr<Grid2D> grid,
-                   ValueConversionTables* conversion_tables)
+                   ValueConversionTables* conversion_tables,
+                   const proto::SubmapsOptions2D options)
     : Submap(transform::Rigid3d::Translation(
           Eigen::Vector3d(origin.x(), origin.y(), 0.))),
-      conversion_tables_(conversion_tables) {
+      conversion_tables_(conversion_tables),
+      options_(options) {
   grid_ = std::move(grid);
 }
 
@@ -184,9 +193,16 @@ void Submap2D::Finish() {
   CHECK(!insertion_finished());
   grid_ = grid_->ComputeCroppedGrid();
 
-  // set features
-  std::transform(circle_feature_smoothers_.begin(),
-                 circle_feature_smoothers_.end(),
+  std::vector<CircleFeatureSmoother> filtered_features;
+  std::copy_if(
+      circle_feature_smoothers_.begin(), circle_feature_smoothers_.end(),
+      std::back_inserter(filtered_features),
+      [this](const CircleFeatureSmoother& s) {
+        return s.observations_count > options_.min_feature_observations() &&
+               s.feature().fdescriptor.score < options_.max_feature_score();
+      });
+
+  std::transform(filtered_features.begin(), filtered_features.end(),
                  std::back_inserter(circle_features_),
                  [](const CircleFeatureSmoother& s) { return s.feature(); });
   circle_feature_smoothers_.clear();

@@ -26,4 +26,6 @@ message SubmapsOptions2D {
   int32 num_range_data = 1;
   GridOptions2D grid_options_2d = 2;
   RangeDataInserterOptions range_data_inserter_options = 3;
+  int32 min_feature_observations = 4;
+  double max_feature_score = 5;
 }

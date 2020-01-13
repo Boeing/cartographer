@@ -108,7 +108,7 @@ void ActiveSubmaps2D::AddSubmap(const Eigen::Vector2f& origin) {
       origin,
       std::unique_ptr<Grid2D>(
           static_cast<Grid2D*>(CreateGrid(origin).release())),
-      &conversion_tables_));
+      &conversion_tables_, options_));
 }
 
 }  // namespace mapping
