@@ -34,6 +34,6 @@ message GlobalICPScanMatcherOptions2D {
 
   mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 10;
   
-    double proposal_features_weight = 11;
+  double proposal_features_weight = 11;
   double proposal_points_weight = 12;
 }
