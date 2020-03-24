@@ -187,7 +187,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
 
     float mse = 0.f;
     int count = 1;
-    int excl_count =  0;
+    // int excl_count =  0;
 
     // max angle +/- from centreline to pole
     const float max_angle = std::asin(radius / (radius + dir.norm()));
@@ -215,7 +215,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
 
       if (angle <= max_angle){
         if (distance_to_circumference < 2.f * radius) {  // consider tightening
-          mse += distance_to_circumference;
+          mse += distance_to_circumference * distance_to_circumference;
           count++;
           circle_scan_points.push_back(static_cast<size_t>(
               std::distance(sorted_range_data.begin(), fw_it)));
@@ -224,8 +224,8 @@ std::vector<Circle<float>> DetectReflectivePoles(
       else {
         // increase mse if circle not isolated
         if (distance_to_circumference < excl_radius - radius) {
-          mse += distance_to_circumference;
-          excl_count++;
+          mse += distance_to_circumference * distance_to_circumference;
+          // excl_count++;
         }
       }
 
@@ -248,7 +248,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
 
       if (angle <= max_angle){
         if (distance_to_circumference < 2.f * radius) {  // consider tightening
-          mse += distance_to_circumference;
+          mse += distance_to_circumference * distance_to_circumference;
           count++;
           circle_scan_points.push_back(static_cast<size_t>(
               std::distance(sorted_range_data.begin(), bw_it.base()) - 1));
@@ -257,8 +257,8 @@ std::vector<Circle<float>> DetectReflectivePoles(
       else {
         // increase mse if circle not isolated
         if (distance_to_circumference < excl_radius - radius) {
-          mse += distance_to_circumference;
-          excl_count++;
+          mse += distance_to_circumference * distance_to_circumference;
+          // excl_count++;
         }
       }
 
@@ -267,9 +267,10 @@ std::vector<Circle<float>> DetectReflectivePoles(
       angle = std::abs(angle_between(dir, bw_it->position.head<2>()));
     }
 
+    mse = std::sqrt(mse);
     mse /= count;
 
-    if (count >= 3 && mse < radius * 0.5f && excl_count < 2) {
+    if (count >= 3 && mse < radius * 0.5f) {
       circle.mse = mse;
       circle.count = count;
       circles.push_back(circle);
