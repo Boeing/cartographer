@@ -10,6 +10,7 @@ RUN set -ex \
         cmake \
         googletest \
         google-mock \
+        libceres-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN cd /root \
