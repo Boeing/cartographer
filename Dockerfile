@@ -17,7 +17,7 @@ RUN cd /root \
     && cd build \
     && cmake ../cmake -GNinja -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=install \
     && ninja \
-    && make install
+    && ninja install
 
 RUN curl https://git.web.boeing.com/brta-robotics/ros/modular_cartographer/-/raw/master/cartographer_ros/dependencies/abseil-cpp-7b46e1d31a6b08b1c6da2a13e7b151a20446fa07.tar.gz -o /root/abseil-cpp.tar.gz
 
