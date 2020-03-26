@@ -11,9 +11,8 @@ RUN set -ex \
     && rm -rf /var/lib/apt/lists/*
 
 RUN cd /root \
-    && git clone https://github.com/protocolbuffers/protobuf.git \
+    && git clone https://github.com/protocolbuffers/protobuf.git -b 'v3.4.1' --single-branch --depth 1 \
     && cd /root/protobuf \
-    && git checkout v3.4.1 \
     && mkdir build \
     && cd build \
     && cmake ../cmake -GNinja -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=install \
