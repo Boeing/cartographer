@@ -6,6 +6,7 @@ RUN set -ex \
         git \
         curl \
         ninja-build \
+        build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 RUN cd /root \

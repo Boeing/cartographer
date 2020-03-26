@@ -20,8 +20,6 @@ clang_format:
 build:
   stage: build
   image: docker:latest
-  before_script:
-    - cd ros
   script:
     - docker build -t ${CI_IMAGE}-${VERSION}  --build-arg http_proxy=http://172.17.0.1:3128 --build-arg https_proxy=http://172.17.0.1:3128 --build-arg CI_JOB_TOKEN=${CI_JOB_TOKEN} --build-arg SRES_USERNAME=${SRES_USERNAME} --build-arg SRES_API_KEY=${SRES_API_KEY} .
   tags:
