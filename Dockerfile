@@ -7,6 +7,7 @@ RUN set -ex \
         curl \
         ninja-build \
         build-essential \
+        cmake \
     && rm -rf /var/lib/apt/lists/*
 
 RUN cd /root \
