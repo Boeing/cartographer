@@ -19,5 +19,3 @@ logs/
 .vscode
 
 .mypy_cache/
-
-Dockerfile
