@@ -11,6 +11,8 @@ RUN set -ex \
         googletest \
         google-mock \
         libceres-dev \
+        libboost-iostreams-dev \
+        liblua5.2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN cd /root \
