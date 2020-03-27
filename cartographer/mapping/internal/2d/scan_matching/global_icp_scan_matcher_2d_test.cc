@@ -12,6 +12,7 @@
 #include "cartographer/mapping/2d/probability_grid.h"
 #include "cartographer/transform/rigid_transform_test_helpers.h"
 #include "cartographer/transform/transform.h"
+#include "cartographer/mapping/proto/2d/submaps_options_2d.pb.h"
 #include "gtest/gtest.h"
 
 namespace cartographer {
@@ -142,7 +143,12 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   *global_icp_config.mutable_icp_options() = icp_config;
 
   Eigen::Vector2f origin = {0.f, 0.f};
-  Submap2D submap(origin, std::move(grid), &conversion_tables);
+
+  cartographer::mapping::proto::SubmapsOptions2D options;
+  options.set_min_feature_observations(2);
+  options.set_max_feature_score(0.5);
+
+  Submap2D submap(origin, std::move(grid), &conversion_tables, options);
 
   GlobalICPScanMatcher2D global_icp_scan_matcher(submap, global_icp_config);
 

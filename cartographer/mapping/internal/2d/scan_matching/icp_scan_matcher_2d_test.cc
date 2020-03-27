@@ -172,14 +172,19 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
   icp_config.set_feature_weight(2.0);
 
   Eigen::Vector2f origin = {0.f, 0.f};
-  Submap2D submap(origin, std::move(grid), &conversion_tables);
+
+  cartographer::mapping::proto::SubmapsOptions2D options;
+  options.set_min_feature_observations(2);
+  options.set_max_feature_score(0.5);
+
+  Submap2D submap(origin, std::move(grid), &conversion_tables, options);
   submap.SetCircleFeatures(map_circle_features);
 
   ICPScanMatcher2D icp_scan_matcher(submap, icp_config);
 
   transform::Rigid2d pose_estimate({inserted_pose.translation().x() + 0.2,
                                     inserted_pose.translation().y() + 0.2},
-                                   inserted_pose.rotation().angle() + 0.1);
+                                    inserted_pose.rotation().angle() + 0.1);
 
   auto surface = probability_grid.DrawSurface();
 

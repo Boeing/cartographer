@@ -100,10 +100,15 @@ TEST(Submap2DTest, ToFromProto) {
   MapLimits expected_map_limits(1., Eigen::Vector2d(2., 3.),
                                 CellLimits(100, 110));
   ValueConversionTables conversion_tables;
+
+  cartographer::mapping::proto::SubmapsOptions2D options;
+  options.set_min_feature_observations(2);
+  options.set_max_feature_score(0.5);
+
   Submap2D expected(Eigen::Vector2f(4.f, 5.f),
                     absl::make_unique<ProbabilityGrid>(expected_map_limits,
                                                        &conversion_tables),
-                    &conversion_tables);
+                    &conversion_tables, options);
   const proto::Submap proto =
       expected.ToProto(true /* include_probability_grid_data */);
   EXPECT_TRUE(proto.has_submap_2d());
