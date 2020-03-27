@@ -171,6 +171,9 @@ std::vector<Circle<float>> DetectReflectivePoles(
   std::vector<Circle<float>> circles;
   std::vector<std::vector<size_t>> circles_scan_points;
 
+  const float excl_radius = radius * 1.5f;
+  const float max_error = radius * 0.25f;
+
   for (size_t i = 0; i < sorted_range_data.size(); ++i) {
     // assess every point
     // assume it is exactly aligned to the center of the circle
@@ -190,11 +193,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
     int intense_count = 1;
 
     // max angle +/- from centreline to pole
-    const float max_angle = std::asin(radius / (radius + dir.norm()));
-
-    // exclusion angle +/- from centreline to pole
-    const float excl_radius = radius * 1.75f;
-    const float exclu_max_angle = std::asin(excl_radius / (excl_radius + dir.norm()));
+    const float max_angle = std::asin(excl_radius / (excl_radius + dir.norm()));
 
     Circle<float> circle;
     circle.radius = radius;
@@ -208,26 +207,19 @@ std::vector<Circle<float>> DetectReflectivePoles(
     fw_it = advance_and_wrap(fw_it, sorted_range_data.begin(),
                              sorted_range_data.end());
     float angle = std::abs(angle_between(dir, fw_it->position.head<2>()));
-    while (angle <= exclu_max_angle) {
+    while (angle <= max_angle) {
       // assess candidate point
       const float distance_to_circumference =
           std::abs(radius - (fw_it->position.head<2>() - position).norm());
 
-      if (angle <= max_angle){
-        if (distance_to_circumference < 3.0f * radius) {  // consider tightening
-          mse += distance_to_circumference * distance_to_circumference;
+        if (distance_to_circumference < excl_radius) {  // consider tightening
+
+          mse += distance_to_circumference;
           count++;
           if (fw_it->intensity > 0) intense_count++;
           circle_scan_points.push_back(static_cast<size_t>(
               std::distance(sorted_range_data.begin(), fw_it)));
         }
-      }
-      else {
-        // increase mse if circle not isolated
-        if (distance_to_circumference < excl_radius - radius) {
-          mse += distance_to_circumference * distance_to_circumference;
-        }
-      }
 
       fw_it = advance_and_wrap(fw_it, sorted_range_data.begin(),
                                sorted_range_data.end());
@@ -241,36 +233,28 @@ std::vector<Circle<float>> DetectReflectivePoles(
     bw_it = advance_and_wrap(bw_it, sorted_range_data.rbegin(),
                              sorted_range_data.rend());
     angle = std::abs(angle_between(dir, bw_it->position.head<2>()));
-    while (angle <= exclu_max_angle) {
+    while (angle <= max_angle) {
       // assess candidate point
       const float distance_to_circumference =
           std::abs(radius - (bw_it->position.head<2>() - position).norm());
 
-      if (angle <= max_angle){
-        if (distance_to_circumference < 3.0f * radius) {  // consider tightening
-          mse += distance_to_circumference * distance_to_circumference;
+        if (distance_to_circumference < excl_radius) {  // consider tightening
+
+          mse += distance_to_circumference;
           count++;
           if (bw_it->intensity > 0) intense_count++;
           circle_scan_points.push_back(static_cast<size_t>(
               std::distance(sorted_range_data.begin(), bw_it.base()) - 1));
         }
-      }
-      else {
-        // increase mse if circle not isolated
-        if (distance_to_circumference < excl_radius - radius) {
-          mse += distance_to_circumference * distance_to_circumference;
-        }
-      }
 
       bw_it = advance_and_wrap(bw_it, sorted_range_data.rbegin(),
                                sorted_range_data.rend());
       angle = std::abs(angle_between(dir, bw_it->position.head<2>()));
     }
 
-    mse = std::sqrt(mse);
     mse /= count;
 
-    if (count > 2 && intense_count > 1 && mse < radius * 0.5f) {
+    if (count > 2 && intense_count > 1 && mse < max_error) {
       circle.mse = mse;
       circle.count = count;
       circles.push_back(circle);
@@ -283,7 +267,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
   std::vector<Circle<float>> clusters;
 
   auto ComputeCluster = [circles, circles_scan_points, radius,
-                         sorted_range_data](const size_t start_i,
+                         sorted_range_data, excl_radius](const size_t start_i,
                                             const size_t end_i) {
     Circle<float> circle;
     circle.mse = 0;
@@ -306,15 +290,20 @@ std::vector<Circle<float>> DetectReflectivePoles(
     } else {
       circle.position = circles[start_i].position;
     }
+    circle.count = 0;
     for (const size_t idx : included_points) {
       const auto scan_point = sorted_range_data[idx].position.head<2>();
       circle.points.push_back(scan_point);
       const float distance_to_circumference = std::abs(radius - (scan_point - circle.position).norm());
-      circle.mse += distance_to_circumference * distance_to_circumference;
+      if (distance_to_circumference < excl_radius) {
+          circle.count++;
+          circle.mse += distance_to_circumference;
+      }
     }
-    circle.count = included_points.size();
-    circle.mse = std::sqrt(circle.mse);
-    circle.mse /= static_cast<float>(included_points.size());
+    if (circle.count > 0)
+        circle.mse /= static_cast<float>(included_points.size());
+    else
+        circle.mse = std::numeric_limits<float>::max();
     return circle;
   };
 
@@ -327,12 +316,16 @@ std::vector<Circle<float>> DetectReflectivePoles(
     if (d < radius * 3.f) {
       end_i = i;
     } else {
-      clusters.push_back(ComputeCluster(start_i, end_i));
+      const auto c = ComputeCluster(start_i, end_i);
+      if (c.mse < max_error)
+          clusters.push_back(c);
       start_i = i;
       end_i = i;
     }
   }
-  clusters.push_back(ComputeCluster(start_i, end_i));
+  const auto c = ComputeCluster(start_i, end_i);
+  if (c.mse < max_error)
+      clusters.push_back(c);
 
   std::sort(clusters.begin(), clusters.end(), CircleSorter<float>());
 
