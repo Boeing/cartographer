@@ -32,6 +32,7 @@ COPY cartographer /root/cartographer/cartographer
 COPY cmake /root/cartographer/cmake
 COPY CMakeLists.txt /root/cartographer/CMakeLists.txt
 COPY cartographer-config.cmake.in /root/cartographer/cartographer-config.cmake.in
+COPY configuration_files /root/cartographer/configuration_files
 
 RUN cd /root/cartographer \
     && mkdir build \
