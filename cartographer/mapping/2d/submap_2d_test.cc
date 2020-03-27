@@ -65,6 +65,8 @@ TEST(Submap2DTest, TheRightNumberOfRangeDataAreInserted) {
       "update_weight_distance_cell_to_hit_kernel_bandwidth = 0,"
       "},"
       "},"
+      "min_feature_observations = 15, "
+      "max_feature_score = 0.5, "
       "}");
   ActiveSubmaps2D submaps{CreateSubmapsOptions2D(parameter_dictionary.get())};
   std::set<std::shared_ptr<const Submap2D>> all_submaps;
