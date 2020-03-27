@@ -37,6 +37,5 @@ RUN cd /root/cartographer \
     && mkdir build \
     && cd build \
     && cmake .. -DABSEIL_TAR_PATH=/root/abseil-cpp.tar.gz -DCMAKE_PREFIX_PATH=/root/protobuf/build/install -DCMAKE_INSTALL_PREFIX=install -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTS:BOOL=On \
-    && make -j4 \
-    && make install
+    && make -j4
 
