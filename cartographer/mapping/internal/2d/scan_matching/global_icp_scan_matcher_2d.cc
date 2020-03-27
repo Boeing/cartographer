@@ -122,6 +122,9 @@ GlobalICPScanMatcher2D::GlobalICPScanMatcher2D(
   CHECK(options_.num_local_samples() > 0);
   CHECK(options_.local_sample_linear_distance() > 0);
   CHECK(options_.local_sample_angular_distance() > 0);
+  CHECK(options_.raytracing_max_distance() > 0);
+  CHECK(options_.proposal_features_weight() > 0);
+  CHECK(options_.proposal_points_weight() > 0);
 }
 
 GlobalICPScanMatcher2D::~GlobalICPScanMatcher2D() {}
@@ -347,7 +350,7 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
         kdtree.radiusSearch(&query_pt[0], options_.min_cluster_distance(),
                             ret_matches, nanoflann::SearchParams());
 
-    if (num_matches + 1 < static_cast<size_t>(options_.min_cluster_size())) {
+    if (num_matches < static_cast<size_t>(options_.min_cluster_size())) {
       labels[i] = NOISE;
       continue;
     }
@@ -381,7 +384,7 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
             &sub_query_pt[0], options_.min_cluster_distance(), sub_ret_matches,
             nanoflann::SearchParams());
 
-        if (static_cast<int>(sub_num_matches) + 1 >
+        if (static_cast<int>(sub_num_matches) >=
             options_.min_cluster_size()) {
           for (const auto& match : sub_ret_matches)
             ret_matches.push_back(match);

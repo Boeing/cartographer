@@ -135,7 +135,10 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   global_icp_config.set_num_global_rotations(16);
   global_icp_config.set_proposal_max_score(1.0);
   global_icp_config.set_proposal_min_inlier_fraction(0.4);
-  global_icp_config.set_min_cluster_size(2);
+  global_icp_config.set_proposal_features_weight(1.0);
+  global_icp_config.set_proposal_points_weight(1.0);
+  global_icp_config.set_raytracing_max_distance(1.0);
+  global_icp_config.set_min_cluster_size(1);
   global_icp_config.set_min_cluster_distance(3.0);
   global_icp_config.set_num_local_samples(100);
   global_icp_config.set_local_sample_linear_distance(0.2);
