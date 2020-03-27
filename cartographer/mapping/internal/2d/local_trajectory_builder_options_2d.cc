@@ -71,7 +71,6 @@ proto::LocalTrajectoryBuilderOptions2D CreateLocalTrajectoryBuilderOptions2D(
       parameter_dictionary->GetDouble("imu_gravity_time_constant"));
   *options.mutable_submaps_options() = CreateSubmapsOptions2D(
       parameter_dictionary->GetDictionary("submaps").get());
-  options.set_use_imu_data(parameter_dictionary->GetBool("use_imu_data"));
   return options;
 }
 

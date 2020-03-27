@@ -69,7 +69,6 @@ LocalTrajectoryBuilder2D::AddRangeData(
       common::FromSeconds(synchronized_data.ranges.front().point_time.time);
 
   CHECK(start_time <= time);
-  CHECK(!options_.use_imu_data());
 
   const auto pose_prediction = extrapolator_->ExtrapolatePose(time);
 
@@ -292,7 +291,6 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
 }
 
 void LocalTrajectoryBuilder2D::AddImuData(const sensor::ImuData&) {
-  CHECK(options_.use_imu_data()) << "An unexpected IMU packet was added.";
   LOG(FATAL) << "Imu Data is not supported";
 }
 

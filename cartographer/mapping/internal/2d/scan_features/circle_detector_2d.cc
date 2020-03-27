@@ -193,7 +193,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
     const float max_angle = std::asin(radius / (radius + dir.norm()));
 
     // exclusion angle +/- from centreline to pole
-    const float excl_radius = radius * 2.0f;
+    const float excl_radius = radius * 1.75f;
     const float exclu_max_angle = std::asin(excl_radius / (excl_radius + dir.norm()));
 
     Circle<float> circle;

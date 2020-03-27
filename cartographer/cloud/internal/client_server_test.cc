@@ -83,7 +83,6 @@ class ClientServerTestBase : public T {
     // flaky when run in parallel.
     const std::string kMapBuilderServerLua = R"text(
       include "map_builder_server.lua"
-      MAP_BUILDER.use_trajectory_builder_2d = true
       MAP_BUILDER.pose_graph.optimize_every_n_nodes = 0
       MAP_BUILDER_SERVER.num_event_threads = 1
       MAP_BUILDER_SERVER.num_grpc_threads = 1
@@ -97,7 +96,6 @@ class ClientServerTestBase : public T {
 
     const std::string kUploadingMapBuilderServerLua = R"text(
       include "map_builder_server.lua"
-      MAP_BUILDER.use_trajectory_builder_2d = true
       MAP_BUILDER.pose_graph.optimize_every_n_nodes = 0
       MAP_BUILDER_SERVER.num_event_threads = 1
       MAP_BUILDER_SERVER.num_grpc_threads = 1
@@ -114,7 +112,6 @@ class ClientServerTestBase : public T {
 
     const std::string kTrajectoryBuilderLua = R"text(
       include "trajectory_builder.lua"
-      TRAJECTORY_BUILDER.trajectory_builder_2d.use_imu_data = false
       TRAJECTORY_BUILDER.trajectory_builder_2d.submaps.num_range_data = 4
       return TRAJECTORY_BUILDER)text";
     auto trajectory_builder_parameters =
@@ -296,8 +293,6 @@ TEST_P(ClientServerTestByGridType, AddSensorData) {
   if (GetParam() == ::cartographer::mapping::GridType::TSDF) {
     SetOptionsToTSDF2D();
   }
-  trajectory_builder_options_.mutable_trajectory_builder_2d_options()
-      ->set_use_imu_data(true);
   InitializeRealServer();
   server_->Start();
   InitializeStub();
@@ -409,49 +404,6 @@ TEST_P(ClientServerTestByGridType, LocalSlamAndDelete2D) {
             PoseGraphInterface::TrajectoryState::DELETED);
   EXPECT_EQ(stub_->pose_graph()->GetAllSubmapPoses().size(), 0);
   EXPECT_EQ(stub_->pose_graph()->GetTrajectoryNodePoses().size(), 0);
-  server_->Shutdown();
-}
-
-TEST_F(ClientServerTest, GlobalSlam3D) {
-  map_builder_server_options_.mutable_map_builder_options()
-      ->set_use_trajectory_builder_2d(false);
-  map_builder_server_options_.mutable_map_builder_options()
-      ->set_use_trajectory_builder_3d(true);
-  map_builder_server_options_.mutable_map_builder_options()
-      ->mutable_pose_graph_options()
-      ->set_optimize_every_n_nodes(3);
-  trajectory_builder_options_.mutable_trajectory_builder_3d_options()
-      ->mutable_motion_filter_options()
-      ->set_max_distance_meters(0);
-  trajectory_builder_options_.mutable_trajectory_builder_3d_options()
-      ->mutable_motion_filter_options()
-      ->set_max_angle_radians(0);
-  InitializeRealServer();
-  server_->Start();
-  InitializeStub();
-  int trajectory_id = stub_->AddTrajectoryBuilder(
-      {kRangeSensorId, kImuSensorId}, trajectory_builder_options_,
-      local_slam_result_callback_);
-  TrajectoryBuilderInterface* trajectory_stub =
-      stub_->GetTrajectoryBuilder(trajectory_id);
-  const auto measurements = mapping::testing::GenerateFakeRangeMeasurements(
-      kTravelDistance, kDuration, kTimeStep);
-  for (const auto& measurement : measurements) {
-    sensor::ImuData imu_data{
-        measurement.time - common::FromSeconds(kTimeStep / 2),
-        Eigen::Vector3d(0., 0., 9.8), Eigen::Vector3d::Zero()};
-    trajectory_stub->AddSensorData(kImuSensorId.id, imu_data);
-    trajectory_stub->AddSensorData(kRangeSensorId.id, measurement);
-  }
-  // First range data will not call back while initializing PoseExtrapolator, so
-  // expect one less.
-  WaitForLocalSlamResults(measurements.size() - 1);
-  stub_->FinishTrajectory(trajectory_id);
-  EXPECT_NEAR(kTravelDistance,
-              (local_slam_result_poses_.back().translation() -
-               local_slam_result_poses_.front().translation())
-                  .norm(),
-              0.1 * kTravelDistance);
   server_->Shutdown();
 }
 

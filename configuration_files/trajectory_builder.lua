@@ -1,6 +1,5 @@
 TRAJECTORY_BUILDER = {
     trajectory_builder_2d = {
-        use_imu_data = false,
         min_range = 0.,
         max_range = 28.,
         min_z = -0.8,
@@ -24,13 +23,13 @@ TRAJECTORY_BUILDER = {
         },
         use_online_correlative_scan_matching = false,
         real_time_correlative_scan_matcher = {
-            linear_search_window = 0.1,
-            angular_search_window = math.rad(20.),
+            linear_search_window = 0.06,
+            angular_search_window = math.rad(5.),
             translation_delta_cost_weight = 1e-1,
             rotation_delta_cost_weight = 1e-1,
         },
         ceres_scan_matcher = {
-            occupied_space_weight = 1.,
+            occupied_space_weight = 10.,
             translation_weight = 1.,
             rotation_weight = 1.,
             ceres_solver_options = {
@@ -46,7 +45,7 @@ TRAJECTORY_BUILDER = {
         },
         imu_gravity_time_constant = 10.,
         submaps = {
-            num_range_data = 20,
+            num_range_data = 30,
             grid_options_2d = {
                 grid_type = "PROBABILITY_GRID",
                 resolution = 0.02,
@@ -72,6 +71,8 @@ TRAJECTORY_BUILDER = {
                     update_weight_distance_cell_to_hit_kernel_bandwidth = 0.5,
                 },
             },
+            min_feature_observations = 15,
+            max_feature_score = 0.5,
         },
     },
     --  pure_localization_trimmer = {

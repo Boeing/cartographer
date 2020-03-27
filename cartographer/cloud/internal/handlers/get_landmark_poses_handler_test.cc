@@ -27,10 +27,10 @@ namespace handlers {
 namespace {
 
 using ::cartographer::transform::Rigid3d;
+using ::testing::_;
 using ::testing::Eq;
 using ::testing::Pointee;
 using ::testing::Truly;
-using ::testing::_;
 
 const std::string kMessage = R"(
   landmark_poses {

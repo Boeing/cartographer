@@ -67,7 +67,4 @@ message LocalTrajectoryBuilderOptions2D {
   double imu_gravity_time_constant = 17;
 
   SubmapsOptions2D submaps_options = 11;
-
-  // True if IMU data should be expected and used.
-  bool use_imu_data = 12;
 }
