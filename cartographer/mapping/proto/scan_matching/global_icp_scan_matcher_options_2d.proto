@@ -22,20 +22,28 @@ message GlobalICPScanMatcherOptions2D {
   int32 num_global_samples = 1;
   int32 num_global_rotations = 2;
 
-  double proposal_max_score = 3;
-  double proposal_min_inlier_fraction = 4;
+  double proposal_point_inlier_threshold = 3;
+  double proposal_feature_inlier_threshold = 4;
 
-  int32 min_cluster_size = 5;
-  double min_cluster_distance = 6;
+  double proposal_min_points_inlier_fraction = 5;
+  double proposal_min_features_inlier_fraction = 6;
 
-  int32 num_local_samples = 7;
-  double local_sample_linear_distance = 8;
-  double local_sample_angular_distance = 9;
+  double proposal_features_weight = 7;
+  double proposal_points_weight = 8;
+
+  double proposal_raytracing_max_error = 9;
+
+  double proposal_max_points_error = 10;
+  double proposal_max_features_error = 11;
+  double proposal_max_error = 12;
+
+  int32 min_cluster_size = 13;
+  double min_cluster_distance = 14;
+
+  int32 num_local_samples = 15;
+
+  double local_sample_linear_distance = 16;
+  double local_sample_angular_distance = 17;
   
-  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 10;
-  
-  double raytracing_max_distance = 11;
-
-  double proposal_features_weight = 12;
-  double proposal_points_weight = 13;
+  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 18;
 }

@@ -270,7 +270,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
     mse = std::sqrt(mse);
     mse /= count;
 
-    if (count >= 3 && intense_count > 2 && mse < radius * 0.5f) {
+    if (count > 2 && intense_count > 1 && mse < radius * 0.5f) {
       circle.mse = mse;
       circle.count = count;
       circles.push_back(circle);

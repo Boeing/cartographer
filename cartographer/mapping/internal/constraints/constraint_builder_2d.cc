@@ -32,7 +32,6 @@
 #include "cartographer/common/thread_pool.h"
 #include "cartographer/mapping/2d/probability_grid.h"
 #include "cartographer/mapping/internal/2d/scan_features/circle_detector_2d.h"
-#include "cartographer/mapping/internal/2d/scan_matching/ray_trace.h"
 #include "cartographer/mapping/proto/scan_matching/ceres_scan_matcher_options_2d.pb.h"
 #include "cartographer/mapping/proto/scan_matching/fast_correlative_scan_matcher_options_2d.pb.h"
 #include "cartographer/metrics/counter.h"
@@ -240,92 +239,28 @@ void ConstraintBuilder2D::ComputeConstraint(
             cluster_estimate, constant_data.filtered_point_cloud,
             constant_data.circle_features);
 
-    double icp_score =
-        std::max(0.01, std::min(1., 1. - icp_match.summary.final_cost));
+    double icp_score = std::max(0.01, std::min(1., 1. - icp_match.summary.final_cost));
 
-    // point match check
-    double agree_fraction = 1.0;
-    double miss_fraction = 1.0;
-    double hit_fraction = 1.0;
-    {
-      auto pg = dynamic_cast<const mapping::ProbabilityGrid*>(submap.grid());
+    const auto statistics = submap_scan_matcher->global_icp_scan_matcher->IcpSolver().EvalutateMatch(icp_match, constant_data.range_data);
 
-      int hit_count = 0;
+    const bool icp_good = icp_score > options_.min_icp_score();
+    const bool icp_points_inlier_good = icp_match.points_inlier_fraction > options_.min_icp_points_inlier_fraction();
+    const bool icp_features_inlier_good = icp_match.features_inlier_fraction > options_.min_icp_features_inlier_fraction();
+    const bool hit_good = statistics.hit_fraction > options_.min_hit_fraction();
 
-      const double max_distance = 6.0 * submap.grid()->limits().resolution();
-      const double max_squared_distance = max_distance * max_distance;
+    const bool match_successful = icp_good && icp_points_inlier_good && icp_features_inlier_good && hit_good;
 
-      const size_t num_results = 1;
-      size_t ret_index;
-      double out_dist_sqr;
-      nanoflann::KNNResultSet<double> result_set(num_results);
-      double query_pt[2];
+    const float overall_score = static_cast<float>(icp_score * statistics.hit_fraction);
 
-      for (const auto& laser_return : constant_data.range_data.returns) {
-        result_set.init(&ret_index, &out_dist_sqr);
-        const auto tr = icp_match.pose_estimate.cast<float>() *
-                        laser_return.position.head<2>();
-        query_pt[0] = static_cast<double>(tr.x());
-        query_pt[1] = static_cast<double>(tr.y());
-        submap_scan_matcher->global_icp_scan_matcher->IcpSolver()
-            .kdtree()
-            .kdtree->findNeighbors(result_set, &query_pt[0],
-                                   nanoflann::SearchParams(10));
-        if (out_dist_sqr < max_squared_distance) ++hit_count;
-      }
-      if (!constant_data.range_data.returns.empty())
-        hit_fraction =
-            static_cast<double>(hit_count) /
-            static_cast<double>(constant_data.range_data.returns.size());
+    LOG(INFO) << match_successful
+              << " (" << overall_score << ")"
+              << " icp: " << icp_score << "(" << icp_good << ")"
+              << " icp_p: " << icp_match.points_inlier_fraction << "(" << icp_points_inlier_good << ")"
+              << " icp_f: " << icp_match.features_inlier_fraction << "(" << icp_features_inlier_good << ")"
+              << " hit: " << statistics.hit_fraction << "(" << hit_good << ")";
 
-      int miss_count = 0;
-      for (const auto& laser_miss : constant_data.range_data.misses) {
-        const auto tr = icp_match.pose_estimate.cast<float>() *
-                        laser_miss.position.head<2>();
-        const auto mp_start = pg->limits().GetCellIndex(
-            icp_match.pose_estimate.translation().cast<float>());
-        const auto mp_end = pg->limits().GetCellIndex(tr);
-        const unsigned int max_cells = static_cast<unsigned int>(
-            static_cast<double>(laser_miss.position.norm()) /
-            pg->limits().resolution());
-        const auto p = mapping::scan_matching::raytraceLine(
-            *pg, mp_start.x(), mp_start.y(), mp_end.x(), mp_end.y(),
-            pg->limits().cell_limits().num_x_cells, max_cells);
-        if (p.x == -1 && p.y == -1) ++miss_count;
-      }
-      if (!constant_data.range_data.misses.empty())
-        miss_fraction =
-            static_cast<double>(miss_count) /
-            static_cast<double>(constant_data.range_data.misses.size());
-
-      {
-        const int total_count = hit_count + miss_count;
-        const size_t total_sum = constant_data.range_data.misses.size() +
-                                 constant_data.range_data.returns.size();
-        if (total_sum > 0)
-          agree_fraction =
-              static_cast<double>(total_count) / static_cast<double>(total_sum);
-      }
-    }
-
-    const double icp_inlier_fraction =
-        static_cast<double>(icp_match.num_inlier_points) /
-        static_cast<double>(constant_data.filtered_point_cloud.size());
-    const float combined_score =
-        static_cast<float>(icp_score * agree_fraction * icp_inlier_fraction);
-
-    const bool match_successful =
-        (icp_score > options_.min_icp_score()) &&
-        (agree_fraction > options_.min_scan_agreement_fraction()) &&
-        (icp_inlier_fraction > options_.min_scan_agreement_fraction());
-
-    LOG(INFO) << match_successful << " (" << combined_score << ")"
-              << " icp: " << icp_score << " icp_inlier: " << icp_inlier_fraction
-              << " hit: " << hit_fraction << " miss: " << miss_fraction
-              << " agree: " << agree_fraction;
-
-    if (match_successful && combined_score > score) {
-      score = combined_score;
+    if (match_successful && overall_score > score) {
+      score = overall_score;
       pose_estimate = icp_match.pose_estimate;
       icp_pose_proposal = cluster_estimate;
       icp_result = icp_match;
@@ -377,7 +312,7 @@ void ConstraintBuilder2D::ComputeConstraint(
       cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL,
                              CAIRO_FONT_WEIGHT_NORMAL);
       cairo_set_font_size(cr, 8);
-      cairo_show_text(cr, std::to_string(match.score).c_str());
+      cairo_show_text(cr, std::to_string(match.error).c_str());
     }
 
     for (const auto& cluster : clusters) {

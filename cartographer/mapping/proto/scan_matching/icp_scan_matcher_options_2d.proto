@@ -23,11 +23,10 @@ message ICPScanMatcherOptions2D {
   double point_pair_point_huber_loss = 3;
   double point_pair_feature_huber_loss = 4;
 
-  double unmatched_feature_cost = 5;
-
   double point_weight = 6;
   double feature_weight = 7;
 
-  // point pairs greater than this distance are not included in the optimisation
-  double inlier_distance_threshold = 8;
+  // pairs with and error greater than this are not included in the optimisation
+  double point_inlier_threshold = 8;
+  double feature_inlier_threshold = 9;
 }

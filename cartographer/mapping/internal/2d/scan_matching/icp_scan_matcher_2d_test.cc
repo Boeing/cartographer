@@ -167,9 +167,10 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
   icp_config.set_nearest_neighbour_feature_huber_loss(0.01);
   icp_config.set_point_pair_point_huber_loss(0.01);
   icp_config.set_point_pair_feature_huber_loss(0.01);
-  icp_config.set_unmatched_feature_cost(1.0);
   icp_config.set_point_weight(1.0);
   icp_config.set_feature_weight(2.0);
+  icp_config.set_point_inlier_threshold(1.0);
+  icp_config.set_feature_inlier_threshold(1.0);
 
   Eigen::Vector2f origin = {0.f, 0.f};
 

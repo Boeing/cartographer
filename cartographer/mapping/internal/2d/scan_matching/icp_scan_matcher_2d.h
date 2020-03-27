@@ -35,7 +35,8 @@ class ICPScanMatcher2D {
     transform::Rigid2d pose_estimate;
     ceres::Solver::Summary summary;
 
-    size_t num_inlier_points;
+    double points_inlier_fraction;
+    double features_inlier_fraction;
 
     std::vector<std::pair<Eigen::Vector2d, Eigen::Vector2d>> pairs;
   };
@@ -43,6 +44,14 @@ class ICPScanMatcher2D {
   Result Match(const transform::Rigid2d& initial_pose_estimate,
                const sensor::PointCloud& point_cloud,
                const std::vector<CircleFeature>& features = {}) const;
+
+  struct Statistics {
+      double agree_fraction;
+      double miss_fraction;
+      double hit_fraction;
+  };
+
+  Statistics EvalutateMatch(const Result& result, const sensor::RangeData& range_data) const;
 
   Result MatchPointPair(const transform::Rigid2d& initial_pose_estimate,
                         const sensor::PointCloud& point_cloud,
@@ -54,6 +63,8 @@ class ICPScanMatcher2D {
   }
 
  private:
+  const Submap2D& submap_;
+
   const proto::ICPScanMatcherOptions2D options_;
   const ceres::Solver::Options ceres_solver_options_;
   const MapLimits limits_;

@@ -23,31 +23,48 @@ MAP_BUILDER = {
             global_icp_scan_matcher_options_2d = {
                 num_global_samples = 200,
                 num_global_rotations = 32,
-                proposal_max_score = 0.4,
-                proposal_min_inlier_fraction = 0.5,
-                proposal_features_weight=10.0,
-                proposal_points_weight=1.0,
-                -- possible index error min size of 2 allows 1
+
+                proposal_point_inlier_threshold = 0.4,
+                proposal_feature_inlier_threshold = 0.4,
+
+                proposal_min_points_inlier_fraction = 0.3,
+                proposal_min_features_inlier_fraction = 0.5,
+
+                proposal_features_weight = 10.0,
+                proposal_points_weight = 1.0,
+
+                proposal_raytracing_max_error = 1.0,
+
+                proposal_max_points_error = 0.6,
+                proposal_max_features_error = 0.6,
+                proposal_max_error = 0.4,
+
                 min_cluster_size = 3,
                 min_cluster_distance = 0.5,
+
                 num_local_samples = 40,
+
                 local_sample_linear_distance = 0.2,
                 local_sample_angular_distance = 0.2,
 
-                raytracing_max_distance = 0.4,
                 icp_options = {
                     nearest_neighbour_point_huber_loss = 0.01,
                     nearest_neighbour_feature_huber_loss = 0.01,
+
                     point_pair_point_huber_loss = 0.01,
                     point_pair_feature_huber_loss = 0.01,
-                    unmatched_feature_cost = 0.00001,
+
                     point_weight = 1.0,
                     feature_weight = 10.0,
-                    inlier_distance_threshold = 1.0,
+
+                    point_inlier_threshold = 1.0,
+                    feature_inlier_threshold = 1.0,
                 }
             },
             min_icp_score = 0.98,
-            min_scan_agreement_fraction = 0.50,
+            min_icp_points_inlier_fraction = 0.3,
+            min_icp_features_inlier_fraction = 0.5,
+            min_hit_fraction = 0.50,
         },
 
         -- used when adding INTRA submap constraints
@@ -57,11 +74,11 @@ MAP_BUILDER = {
         optimization_problem = {
             huber_scale = 1e1, -- only for inter-submap constraints
 
-            local_slam_pose_translation_weight = 1e5,
-            local_slam_pose_rotation_weight = 1e5,
+            local_slam_pose_translation_weight = 1,
+            local_slam_pose_rotation_weight = 1,
 
-            odometry_translation_weight = 1e5,
-            odometry_rotation_weight = 1e5,
+            odometry_translation_weight = 1,
+            odometry_rotation_weight = 1,
 
             fixed_frame_pose_translation_weight = 1e1, -- only in 3d
             fixed_frame_pose_rotation_weight = 1e2, -- only in 3d
