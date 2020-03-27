@@ -31,16 +31,6 @@ if(NOT GMock_FOUND)
       /usr
   )
 
-  # https://github.com/googlecartographer/cartographer/issues/1611#issuecomment-560236725
-  find_library(GTEST_LIBRARIES
-    NAMES gtest
-    PATH_SUFFIXES lib
-  )
-  find_library(GMOCK_A_LIBRARIES
-    NAMES gmock
-    PATH_SUFFIXES lib
-  )
-
   # Find system-wide gtest header.
   find_path(GTEST_INCLUDE_DIRS gtest/gtest.h
     HINTS
@@ -75,7 +65,7 @@ if(NOT GMock_FOUND)
 
   # System-wide installed gmock library might require pthreads.
   find_package(Threads REQUIRED)
-  list(APPEND GMOCK_LIBRARIES ${GMOCK_A_LIBRARIES} ${GTEST_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+  list(APPEND GMOCK_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
 include(FindPackageHandleStandardArgs)
