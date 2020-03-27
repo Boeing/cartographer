@@ -13,6 +13,7 @@ RUN set -ex \
         libceres-dev \
         libboost-iostreams-dev \
         liblua5.2-dev \
+        libcairo2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN cd /root \
