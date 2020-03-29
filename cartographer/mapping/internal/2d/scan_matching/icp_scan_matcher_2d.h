@@ -46,12 +46,13 @@ class ICPScanMatcher2D {
                const std::vector<CircleFeature>& features = {}) const;
 
   struct Statistics {
-      double agree_fraction;
-      double miss_fraction;
-      double hit_fraction;
+    double agree_fraction;
+    double miss_fraction;
+    double hit_fraction;
   };
 
-  Statistics EvalutateMatch(const Result& result, const sensor::RangeData& range_data) const;
+  Statistics EvalutateMatch(const Result& result,
+                            const sensor::RangeData& range_data) const;
 
   Result MatchPointPair(const transform::Rigid2d& initial_pose_estimate,
                         const sensor::PointCloud& point_cloud,
