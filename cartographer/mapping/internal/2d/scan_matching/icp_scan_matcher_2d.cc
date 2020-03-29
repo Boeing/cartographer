@@ -177,8 +177,8 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
   }
 
   Result result;
-  result.points_inlier_fraction = !point_cloud.empty() ? included_points.size() / point_cloud.size() : 1.0;
-  result.features_inlier_fraction = !features.empty() ? included_features.size() / features.size() : 1.0;
+  result.points_inlier_fraction = !point_cloud.empty() ? static_cast<double>(included_points.size()) / point_cloud.size() : 1.0;
+  result.features_inlier_fraction = !features.empty() ? static_cast<double>(included_features.size()) / features.size() : 1.0;
 
   ceres::Solve(ceres_solver_options_, &problem, &result.summary);
 
@@ -428,8 +428,8 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::MatchPointPair(
   result.pose_estimate = transform::Rigid2d(
       {ceres_pose_estimate[0], ceres_pose_estimate[1]}, ceres_pose_estimate[2]);
 
-  result.points_inlier_fraction = !point_cloud.empty() ? points_count / point_cloud.size() : 1.0;
-  result.features_inlier_fraction = !features.empty() ? features_count / features.size() : 1.0;
+  result.points_inlier_fraction = !point_cloud.empty() ? static_cast<double>(points_count) / point_cloud.size() : 1.0;
+  result.features_inlier_fraction = !features.empty() ? static_cast<double>(features_count) / features.size() : 1.0;
 
   return result;
 }
