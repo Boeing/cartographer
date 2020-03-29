@@ -40,11 +40,69 @@ class ConstraintBuilder2DTest : public ::testing::Test {
  protected:
   void SetUp() override {
     auto constraint_builder_parameters = testing::ResolveLuaParameters(R"text(
-            include "pose_graph.lua"
-            POSE_GRAPH.constraint_builder.sampling_ratio = 1
-            POSE_GRAPH.constraint_builder.min_score = 0
-            POSE_GRAPH.constraint_builder.global_localization_min_score = 0
-            return POSE_GRAPH.constraint_builder)text");
+           return {
+           min_local_search_score = 0.40,
+           min_global_search_score = 0.45,
+
+           -- used when adding INTER submap constraints
+           constraint_translation_weight = 2,
+           constraint_rotation_weight = 2,
+           log_matches = true,
+           ceres_scan_matcher = {
+               occupied_space_weight = 1,
+               translation_weight = 1,
+               rotation_weight = 1,
+               ceres_solver_options = {
+                   use_nonmonotonic_steps = true,
+                   max_num_iterations = 100,
+                   num_threads = 1,
+               },
+           },
+           global_icp_scan_matcher_options_2d = {
+               num_global_samples = 400,
+               num_global_rotations = 32,
+
+               proposal_point_inlier_threshold = 0.8,
+               proposal_feature_inlier_threshold = 0.8,
+
+               proposal_min_points_inlier_fraction = 0.2,
+               proposal_min_features_inlier_fraction = 0.5,
+
+               proposal_features_weight = 1.0,
+               proposal_points_weight = 1.0,
+
+               proposal_raytracing_max_error = 1.0,
+
+               proposal_max_points_error = 0.8,
+               proposal_max_features_error = 0.8,
+               proposal_max_error = 0.8,
+
+               min_cluster_size = 1,
+               min_cluster_distance = 1.0,
+
+               num_local_samples = 40,
+
+               local_sample_linear_distance = 0.2,
+               local_sample_angular_distance = 0.2,
+
+               icp_options = {
+                   nearest_neighbour_point_huber_loss = 0.01,
+                   nearest_neighbour_feature_huber_loss = 0.01,
+
+                   point_pair_point_huber_loss = 0.01,
+                   point_pair_feature_huber_loss = 0.01,
+
+                   point_weight = 1.0,
+                   feature_weight = 10.0,
+
+                   point_inlier_threshold = 0.4,
+                   feature_inlier_threshold = 0.4,
+               }
+           },
+           min_icp_score = 0.98,
+           min_icp_points_inlier_fraction = 0.3,
+           min_icp_features_inlier_fraction = 0.5,
+           min_hit_fraction = 0.50})text");
     constraint_builder_ = absl::make_unique<ConstraintBuilder2D>(
         CreateConstraintBuilderOptions(constraint_builder_parameters.get()),
         &thread_pool_);
