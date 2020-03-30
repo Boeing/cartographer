@@ -42,7 +42,9 @@ message ConstraintBuilderOptions {
 
   // Minimum score to consider an ICP scan match successful
   double min_icp_score = 8;
+  double min_icp_points_inlier_fraction = 9;
+  double min_icp_features_inlier_fraction = 10;
 
   // Minimum scan agreement required for a successful scan match
-  double min_scan_agreement_fraction = 9;
+  double min_hit_fraction = 11;
 }

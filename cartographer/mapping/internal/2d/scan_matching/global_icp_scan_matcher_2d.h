@@ -58,10 +58,11 @@ class GlobalICPScanMatcher2D {
   };
 
   struct SamplePose {
-    double feature_match_cost;
-    double point_match_cost;
-    double score;
-    double inlier_fraction;
+    double features_error;
+    double points_error;
+    double error;
+    double points_inlier_fraction;
+    double features_inlier_fraction;
     double x;
     double y;
     double rotation;

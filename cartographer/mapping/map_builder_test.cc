@@ -41,8 +41,6 @@ class MapBuilderTestBase : public T {
   void SetUp() override {
     // Global SLAM optimization is not executed.
     const std::string kMapBuilderLua = R"text(
-      include "map_builder.lua"
-      MAP_BUILDER.use_trajectory_builder_2d = true
       MAP_BUILDER.pose_graph.optimize_every_n_nodes = 0
       MAP_BUILDER.pose_graph.global_sampling_ratio = 0.05
       MAP_BUILDER.pose_graph.global_constraint_search_after_n_seconds = 0
@@ -53,7 +51,6 @@ class MapBuilderTestBase : public T {
     // Multiple submaps are created because of a small 'num_range_data'.
     const std::string kTrajectoryBuilderLua = R"text(
       include "trajectory_builder.lua"
-      TRAJECTORY_BUILDER.trajectory_builder_2d.use_imu_data = false
       TRAJECTORY_BUILDER.trajectory_builder_2d.submaps.num_range_data = 4
       TRAJECTORY_BUILDER.trajectory_builder_3d.submaps.num_range_data = 4
       return TRAJECTORY_BUILDER)text";
@@ -263,8 +260,6 @@ TEST_P(MapBuilderTestByGridType, DeleteFinishedTrajectory2D) {
 
 TEST_P(MapBuilderTestByGridTypeAndDimensions, SaveLoadState) {
   if (GetParam().first == GridType::TSDF) SetOptionsToTSDF2D();
-  trajectory_builder_options_.mutable_trajectory_builder_2d_options()
-      ->set_use_imu_data(true);
   BuildMapBuilder();
   int trajectory_id = map_builder_->AddTrajectoryBuilder(
       {kRangeSensorId, kIMUSensorId}, trajectory_builder_options_,

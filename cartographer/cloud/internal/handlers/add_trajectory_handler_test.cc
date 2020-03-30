@@ -28,13 +28,13 @@ namespace cloud {
 namespace handlers {
 namespace {
 
+using ::testing::_;
 using ::testing::ContainerEq;
 using ::testing::Eq;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::Test;
 using ::testing::Truly;
-using ::testing::_;
 
 const std::string kMessage = R"(
     client_id: "CLIENT_ID"

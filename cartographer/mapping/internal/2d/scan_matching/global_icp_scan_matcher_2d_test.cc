@@ -12,6 +12,7 @@
 #include "cartographer/mapping/2d/probability_grid.h"
 #include "cartographer/transform/rigid_transform_test_helpers.h"
 #include "cartographer/transform/transform.h"
+#include "cartographer/mapping/proto/2d/submaps_options_2d.pb.h"
 #include "gtest/gtest.h"
 
 namespace cartographer {
@@ -124,17 +125,31 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   icp_config.set_nearest_neighbour_feature_huber_loss(0.01);
   icp_config.set_point_pair_point_huber_loss(0.01);
   icp_config.set_point_pair_feature_huber_loss(0.01);
-  icp_config.set_unmatched_feature_cost(1.0);
   icp_config.set_point_weight(1.0);
   icp_config.set_feature_weight(2.0);
-  icp_config.set_inlier_distance_threshold(1.0);
+  icp_config.set_point_inlier_threshold(1.0);
+  icp_config.set_feature_inlier_threshold(1.0);
 
   proto::GlobalICPScanMatcherOptions2D global_icp_config;
   global_icp_config.set_num_global_samples(400);
   global_icp_config.set_num_global_rotations(16);
-  global_icp_config.set_proposal_max_score(1.0);
-  global_icp_config.set_proposal_min_inlier_fraction(0.4);
-  global_icp_config.set_min_cluster_size(2);
+
+  global_icp_config.set_proposal_point_inlier_threshold(1.0);
+  global_icp_config.set_proposal_feature_inlier_threshold(1.0);
+
+  global_icp_config.set_proposal_min_points_inlier_fraction(0.3);
+  global_icp_config.set_proposal_min_features_inlier_fraction(0.3);
+
+  global_icp_config.set_proposal_features_weight(1.0);
+  global_icp_config.set_proposal_points_weight(1.0);
+
+  global_icp_config.set_proposal_raytracing_max_error(1.0);
+
+  global_icp_config.set_proposal_max_points_error(1.0);
+  global_icp_config.set_proposal_max_features_error(1.0);
+  global_icp_config.set_proposal_max_error(1.0);
+
+  global_icp_config.set_min_cluster_size(3);
   global_icp_config.set_min_cluster_distance(3.0);
   global_icp_config.set_num_local_samples(100);
   global_icp_config.set_local_sample_linear_distance(0.2);
@@ -142,7 +157,12 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   *global_icp_config.mutable_icp_options() = icp_config;
 
   Eigen::Vector2f origin = {0.f, 0.f};
-  Submap2D submap(origin, std::move(grid), &conversion_tables);
+
+  cartographer::mapping::proto::SubmapsOptions2D options;
+  options.set_min_feature_observations(2);
+  options.set_max_feature_score(0.5);
+
+  Submap2D submap(origin, std::move(grid), &conversion_tables, options);
 
   GlobalICPScanMatcher2D global_icp_scan_matcher(submap, global_icp_config);
 
@@ -151,6 +171,9 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
       global_icp_scan_matcher.Match(unperturbed_point_cloud);
 
   LOG(INFO) << "Found " << match_result.poses.size() << " proposals";
+
+  for (const auto proposal : match_result.poses)
+      LOG(INFO) << "Proposal: score: " << proposal.error << " inlier: " << proposal.points_inlier_fraction;
 
   LOG(INFO) << "DBScanCluster...";
   const auto clusters =
@@ -171,9 +194,7 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
     const double icp_score =
         std::max(0.01, std::min(1., 1. - icp_match.summary.final_cost));
 
-    LOG(INFO) << "ICP: " << cluster_estimate << " -> "
-              << icp_match.pose_estimate
-              << " cost: " << icp_match.summary.final_cost
+    LOG(INFO) << "ICP: " << icp_match.summary.final_cost
               << " score: " << icp_score;
 
     //    LOG(INFO) << icp_match.summary.FullReport();
@@ -230,7 +251,7 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
     const auto& match = match_result.poses[i];
 
     const double max_score = 2e4;
-    double intensity = std::max(0., max_score - match.score) / max_score;
+    double intensity = std::max(0., max_score - match.error) / max_score;
 
     auto dir = Eigen::Rotation2Df(match.rotation) * Eigen::Vector2f(10.0, 0.0);
 

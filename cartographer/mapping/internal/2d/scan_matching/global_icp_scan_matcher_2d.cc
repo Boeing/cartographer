@@ -26,11 +26,20 @@ proto::GlobalICPScanMatcherOptions2D CreateGlobalICPScanMatcherOptions2D(
   options.set_num_global_rotations(
       parameter_dictionary->GetInt("num_global_rotations"));
 
-  options.set_proposal_max_score(
-      parameter_dictionary->GetDouble("proposal_max_score"));
+  options.set_proposal_point_inlier_threshold(parameter_dictionary->GetDouble("proposal_point_inlier_threshold"));
+  options.set_proposal_feature_inlier_threshold(parameter_dictionary->GetDouble("proposal_feature_inlier_threshold"));
 
-  options.set_proposal_min_inlier_fraction(
-      parameter_dictionary->GetDouble("proposal_min_inlier_fraction"));
+  options.set_proposal_min_points_inlier_fraction(parameter_dictionary->GetDouble("proposal_min_points_inlier_fraction"));
+  options.set_proposal_min_features_inlier_fraction(parameter_dictionary->GetDouble("proposal_min_features_inlier_fraction"));
+
+  options.set_proposal_features_weight(parameter_dictionary->GetDouble("proposal_features_weight"));
+  options.set_proposal_points_weight(parameter_dictionary->GetDouble("proposal_points_weight"));
+
+  options.set_proposal_raytracing_max_error(parameter_dictionary->GetDouble("proposal_raytracing_max_error"));
+
+  options.set_proposal_max_points_error(parameter_dictionary->GetDouble("proposal_max_points_error"));
+  options.set_proposal_max_features_error(parameter_dictionary->GetDouble("proposal_max_features_error"));
+  options.set_proposal_max_error(parameter_dictionary->GetDouble("proposal_max_error"));
 
   options.set_min_cluster_size(
       parameter_dictionary->GetInt("min_cluster_size"));
@@ -44,15 +53,6 @@ proto::GlobalICPScanMatcherOptions2D CreateGlobalICPScanMatcherOptions2D(
       parameter_dictionary->GetDouble("local_sample_linear_distance"));
   options.set_local_sample_angular_distance(
       parameter_dictionary->GetDouble("local_sample_angular_distance"));
-
-  options.set_raytracing_max_distance(
-      parameter_dictionary->GetDouble("raytracing_max_distance"));
-
-  options.set_proposal_features_weight(
-      parameter_dictionary->GetDouble("proposal_features_weight"));
-
-  options.set_proposal_points_weight(
-      parameter_dictionary->GetDouble("proposal_points_weight"));
 
   *options.mutable_icp_options() = scan_matching::CreateICPScanMatcherOptions2D(
       parameter_dictionary->GetDictionary("icp_options").get());
@@ -81,7 +81,7 @@ std::vector<GlobalICPScanMatcher2D::RotatedScan> GenerateRotatedScans(
 struct SamplePoseMinHeapOperator {
   bool operator()(const GlobalICPScanMatcher2D::SamplePose& lhs,
                   const GlobalICPScanMatcher2D::SamplePose& rhs) {
-    return lhs.score > rhs.score;
+    return lhs.error > rhs.error;
   }
 };
 
@@ -115,8 +115,22 @@ GlobalICPScanMatcher2D::GlobalICPScanMatcher2D(
       icp_solver_(submap, options_.icp_options()) {
   CHECK(options_.num_global_samples() > 0);
   CHECK(options_.num_global_rotations() > 0);
-  CHECK(options_.proposal_max_score() > 0);
-  CHECK(options_.proposal_min_inlier_fraction() > 0);
+
+  CHECK(options_.proposal_point_inlier_threshold() > 0);
+  CHECK(options_.proposal_feature_inlier_threshold() > 0);
+
+  CHECK(options_.proposal_min_points_inlier_fraction() > 0);
+  CHECK(options_.proposal_min_features_inlier_fraction() > 0);
+
+  CHECK(options_.proposal_features_weight() > 0);
+  CHECK(options_.proposal_points_weight() > 0);
+
+  // if raytracing_max_distance is < 0 the option is ignored
+
+  CHECK(options_.proposal_max_points_error() > 0);
+  CHECK(options_.proposal_max_features_error() > 0);
+  CHECK(options_.proposal_max_error() > 0);
+
   CHECK(options_.min_cluster_size() > 0);
   CHECK(options_.min_cluster_distance() > 0);
   CHECK(options_.num_local_samples() > 0);
@@ -200,9 +214,7 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
 bool GlobalICPScanMatcher2D::evaluateSample(
     SamplePose& sample_pose, const sensor::PointCloud& rotated_scan,
     const std::vector<CircleFeature>& features) {
-  sample_pose.score = std::numeric_limits<double>::max();
-  sample_pose.feature_match_cost = 0.0;
-  sample_pose.point_match_cost = 0.0;
+  sample_pose.error = std::numeric_limits<double>::max();
 
   // filter based on features
   if (!features.empty()) {
@@ -215,6 +227,10 @@ bool GlobalICPScanMatcher2D::evaluateSample(
     nanoflann::KNNResultSet<float> result_set(num_results);
     float query_pt[3];
 
+    const float feature_inlier_threshold_squared =
+        options_.proposal_feature_inlier_threshold() * options_.proposal_feature_inlier_threshold();
+
+    size_t count = 0;
     for (std::size_t p = 0; p < features.size(); ++p) {
       result_set.init(&ret_index, &out_dist_sqr);
       const Eigen::Vector3f rotated_point =
@@ -225,20 +241,35 @@ bool GlobalICPScanMatcher2D::evaluateSample(
       query_pt[2] = features[p].fdescriptor.radius;
       icp_solver_.circle_feature_index().kdtree->findNeighbors(
           result_set, &query_pt[0], nanoflann::SearchParams(10));
-      sample_pose.feature_match_cost +=
-          static_cast<double>(std::sqrt(out_dist_sqr));
+
+      if (out_dist_sqr < feature_inlier_threshold_squared) {
+        sample_pose.features_error += static_cast<double>(std::sqrt(out_dist_sqr));
+        count++;
+      }
     }
-    sample_pose.feature_match_cost /= features.size();
+
+    // reject sample if there are no inliers
+    if (count == 0) return false;
+
+    sample_pose.features_error /= count;
+    sample_pose.features_inlier_fraction = count / features.size();
+  } else {
+    sample_pose.features_error = 0.0;
+    sample_pose.features_inlier_fraction = 1.0;
   }
 
+  // don't bother considering if the inlier fraction is low
+  if (sample_pose.features_inlier_fraction < options_.proposal_min_features_inlier_fraction())
+    return false;
+
   // don't bother considering if the features are a bad match
-  if (sample_pose.feature_match_cost > options_.proposal_max_score())
+  if (sample_pose.features_error > options_.proposal_max_features_error())
     return false;
 
   // filter based on scan points
   {
-    const double proposal_max_squared =
-        options_.proposal_max_score() * options_.proposal_max_score();
+    const double point_inlier_threshold_squared =
+        options_.proposal_point_inlier_threshold() * options_.proposal_point_inlier_threshold();
 
     const size_t num_results = 1;
     size_t ret_index;
@@ -255,37 +286,45 @@ bool GlobalICPScanMatcher2D::evaluateSample(
                     static_cast<double>(rotated_scan[p].position.y());
       icp_solver_.kdtree().kdtree->findNeighbors(result_set, &query_pt[0],
                                                  nanoflann::SearchParams(10));
-      if (out_dist_sqr < proposal_max_squared) {
-        const transform::Rigid2d src_pt({sample_pose.x, sample_pose.y}, 0);
-        const transform::Rigid2d tgt_pt({query_pt[0], query_pt[1]}, 0);
+      if (out_dist_sqr < point_inlier_threshold_squared) {
+        // raycase the point to check it is not behind occupied space
+        // if the option is set to zero (or negative) then always add
+        if (options_.proposal_raytracing_max_error() > 0)
+        {
+            const transform::Rigid2d src_pt({sample_pose.x, sample_pose.y}, 0);
+            const transform::Rigid2d tgt_pt({query_pt[0], query_pt[1]}, 0);
 
-        auto pg =
-            dynamic_cast<const mapping::ProbabilityGrid*>(submap().grid());
+            auto pg =
+                dynamic_cast<const mapping::ProbabilityGrid*>(submap().grid());
 
-        const auto mp_start =
-            pg->limits().GetCellIndex(src_pt.translation().cast<float>());
+            const auto mp_start =
+                pg->limits().GetCellIndex(src_pt.translation().cast<float>());
 
-        const auto mp_end =
-            pg->limits().GetCellIndex(tgt_pt.translation().cast<float>());
+            const auto mp_end =
+                pg->limits().GetCellIndex(tgt_pt.translation().cast<float>());
 
-        const auto p = mapping::scan_matching::raytraceLine(
-            *pg, mp_start.x(), mp_start.y(), mp_end.x(), mp_end.y(),
-            pg->limits().cell_limits().num_x_cells);
+            const auto p = mapping::scan_matching::raytraceLine(
+                *pg, mp_start.x(), mp_start.y(), mp_end.x(), mp_end.y(),
+                pg->limits().cell_limits().num_x_cells);
 
-        // Consider point as valid if it is not behind occupied space
-        if (p.x != -1 && p.y != -1) {
-          Eigen::Vector2f inter =
-              pg->limits().GetCellCenter(Eigen::Array2i(p.x, p.y));
-          double dist_from_end =
-              Eigen::Vector2f(query_pt[0] - inter[0], query_pt[1] - inter[1])
-                  .norm();
-          if (dist_from_end < options_.raytracing_max_distance()) {
-            ++count;
-            sample_pose.point_match_cost += std::sqrt(out_dist_sqr);
-          }
+            // Consider point as valid if it is not behind occupied space
+            if (p.x != -1 && p.y != -1) {
+              const Eigen::Vector2f inter =
+                  pg->limits().GetCellCenter(Eigen::Array2i(p.x, p.y));
+              const float dist_from_end =
+                  Eigen::Vector2f(query_pt[0] - inter[0], query_pt[1] - inter[1])
+                      .norm();
+              if (dist_from_end < options_.proposal_raytracing_max_error()) {
+                ++count;
+                sample_pose.points_error += std::sqrt(out_dist_sqr);
+              }
+            } else {
+              ++count;
+              sample_pose.points_error += std::sqrt(out_dist_sqr);
+            }
         } else {
           ++count;
-          sample_pose.point_match_cost += std::sqrt(out_dist_sqr);
+          sample_pose.points_error += std::sqrt(out_dist_sqr);
         }
       }
     }
@@ -293,29 +332,31 @@ bool GlobalICPScanMatcher2D::evaluateSample(
     // reject sample if there are no inliers
     if (count == 0) return false;
 
-    sample_pose.inlier_fraction =
-        static_cast<double>(count) / static_cast<double>(rotated_scan.size());
-    sample_pose.point_match_cost /= static_cast<double>(count);
-    sample_pose.point_match_cost /=
-        (sample_pose.inlier_fraction * sample_pose.inlier_fraction);
+    sample_pose.points_inlier_fraction = static_cast<double>(count) / static_cast<double>(rotated_scan.size());
+    sample_pose.points_error /= static_cast<double>(count);
   }
 
   // don't bother considering if the inlier fraction is low
-  if (sample_pose.inlier_fraction < options_.proposal_min_inlier_fraction())
+  if (sample_pose.points_inlier_fraction < options_.proposal_min_points_inlier_fraction())
     return false;
 
-  // the final score is the average of features + scan
-  if (sample_pose.feature_match_cost > 0) {
-    sample_pose.score =
-        (options_.proposal_features_weight() * sample_pose.feature_match_cost +
-         options_.proposal_points_weight() * sample_pose.point_match_cost) /
+  // don't bother considering if the points are a bad match
+  if (sample_pose.points_error > options_.proposal_max_points_error())
+    return false;
+
+  // the final error is the weighted average of features + points error
+  if (sample_pose.features_error > 0) {
+    sample_pose.error =
+        (options_.proposal_features_weight() * sample_pose.features_error +
+         options_.proposal_points_weight() * sample_pose.points_error) /
         (options_.proposal_features_weight() +
          options_.proposal_points_weight());
   } else
-    sample_pose.score = sample_pose.point_match_cost;
+    sample_pose.error = sample_pose.points_error;
 
-  // don't bother considering if the score is bad
-  if (sample_pose.score > options_.proposal_max_score()) return false;
+  // don't bother considering if the final error is bad
+  if (sample_pose.error > options_.proposal_max_error())
+      return false;
 
   return true;
 }
@@ -347,7 +388,7 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
         kdtree.radiusSearch(&query_pt[0], options_.min_cluster_distance(),
                             ret_matches, nanoflann::SearchParams());
 
-    if (num_matches + 1 < static_cast<size_t>(options_.min_cluster_size())) {
+    if (num_matches < static_cast<size_t>(options_.min_cluster_size())) {
       labels[i] = NOISE;
       continue;
     }
@@ -381,7 +422,7 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
             &sub_query_pt[0], options_.min_cluster_distance(), sub_ret_matches,
             nanoflann::SearchParams());
 
-        if (static_cast<int>(sub_num_matches) + 1 >
+        if (static_cast<int>(sub_num_matches) >=
             options_.min_cluster_size()) {
           for (const auto& match : sub_ret_matches)
             ret_matches.push_back(match);
@@ -396,7 +437,7 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
     double rotation_y = 0;
     double weights_sum = 0;
     for (std::size_t p = 0; p < cluster.poses.size(); ++p) {
-      const double weight = 1.0 / std::max(0.01, cluster.poses[p].score);
+      const double weight = 1.0 / std::max(0.01, cluster.poses[p].error);
       cluster.x += weight * cluster.poses[p].x;
       cluster.y += weight * cluster.poses[p].y;
       rotation_x += weight * std::cos(cluster.poses[p].rotation);
