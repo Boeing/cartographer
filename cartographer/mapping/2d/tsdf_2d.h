@@ -24,6 +24,7 @@
 #include "cartographer/mapping/2d/map_limits.h"
 #include "cartographer/mapping/2d/tsd_value_converter.h"
 #include "cartographer/mapping/2d/xy_index.h"
+
 namespace cartographer {
 namespace mapping {
 
@@ -50,6 +51,8 @@ class TSDF2D : public Grid2D {
       proto::SubmapQuery::Response::SubmapTexture* const texture,
       transform::Rigid3d local_pose) const override;
   bool CellIsUpdated(const Eigen::Array2i& cell_index) const;
+
+  virtual cartographer::io::UniqueCairoSurfacePtr DrawSurface() const override;
 
  private:
   ValueConversionTables* conversion_tables_;

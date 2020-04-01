@@ -19,6 +19,7 @@
 
 #include <vector>
 
+#include "cartographer/io/submap_painter.h"
 #include "cartographer/mapping/2d/map_limits.h"
 #include "cartographer/mapping/grid_interface.h"
 #include "cartographer/mapping/probability_values.h"
@@ -98,6 +99,8 @@ class Grid2D : public GridInterface {
   const std::vector<uint16>& correspondence_cost_cells() const {
     return correspondence_cost_cells_;
   }
+
+  virtual cartographer::io::UniqueCairoSurfacePtr DrawSurface() const = 0;
 
  protected:
   void GrowLimits(const Eigen::Vector2f& point,

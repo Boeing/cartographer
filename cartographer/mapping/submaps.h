@@ -23,6 +23,7 @@
 #include "Eigen/Geometry"
 #include "cartographer/common/math.h"
 #include "cartographer/common/port.h"
+#include "cartographer/io/submap_painter.h"
 #include "cartographer/mapping/id.h"
 #include "cartographer/mapping/probability_values.h"
 #include "cartographer/mapping/proto/serialization.pb.h"
@@ -83,6 +84,8 @@ class Submap {
   void set_insertion_finished(bool insertion_finished) {
     insertion_finished_ = insertion_finished;
   }
+
+  virtual cartographer::io::UniqueCairoSurfacePtr DrawSurface() const = 0;
 
  private:
   const transform::Rigid3d local_pose_;

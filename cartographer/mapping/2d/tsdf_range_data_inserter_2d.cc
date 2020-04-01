@@ -47,7 +47,7 @@ void GrowAsNeeded(const sensor::RangeData& range_data,
 }
 
 float GaussianKernel(const float x, const float sigma) {
-  return 1.0 / (kSqrtTwoPi * sigma) * std::exp(-0.5 * x * x / (sigma * sigma));
+  return 1.0f / (kSqrtTwoPi * sigma) * std::exp(-0.5 * x * x / (sigma * sigma));
 }
 
 std::pair<Eigen::Array2i, Eigen::Array2i> SuperscaleRay(

@@ -20,7 +20,9 @@
 #include <memory>
 
 #include "cartographer/common/lua_parameter_dictionary.h"
+#include "cartographer/mapping/2d/probability_grid.h"
 #include "cartographer/mapping/proto/serialization.pb.h"
+#include "cartographer/sensor/odometry_data.h"
 #include "cartographer/sensor/timed_point_cloud_data.h"
 
 namespace cartographer {
@@ -60,6 +62,18 @@ void AddToProtoGraph(const proto::PoseGraph::Constraint& constraint,
 
 void AddToProtoGraph(const proto::PoseGraph::LandmarkPose& landmark_node,
                      proto::PoseGraph* pose_graph);
+
+struct SimulationData {
+  struct DataPoint {
+    cartographer::sensor::TimedPointCloudData laser_scan;
+    cartographer::sensor::OdometryData odom;
+  };
+
+  std::vector<DataPoint> data;
+  std::unique_ptr<ProbabilityGrid> ground_truth;
+};
+
+SimulationData GenerateSimulationData();
 
 }  // namespace testing
 }  // namespace mapping

@@ -42,8 +42,6 @@ LocalTrajectoryBuilder2D::LocalTrajectoryBuilder2D(
     : options_(options),
       active_submaps_(options.submaps_options()),
       motion_filter_(options_.motion_filter_options()),
-      real_time_correlative_scan_matcher_(
-          options_.real_time_correlative_scan_matcher_options()),
       ceres_scan_matcher_(options_.ceres_scan_matcher_options()),
       range_data_collator_(expected_range_sensor_ids) {
   extrapolator_ = absl::make_unique<PoseExtrapolator>();
@@ -164,24 +162,17 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   // will be accurate
   const int min_num_range_data = 10;
   const bool submap_init =
-      !active_submaps_.submaps().empty() &&
-      active_submaps_.submaps().front()->num_range_data() > min_num_range_data;
+      !active_submaps_.submaps().empty() && active_submaps_.submaps().front()->num_range_data() > min_num_range_data;
+
+  // TODO scale scan match weight based on trust with odom
+  // TODO put everything into the first submap until sensor is stabilized
 
   // scan match
   if (submap_init) {
     std::shared_ptr<const Submap2D> matching_submap =
         active_submaps_.submaps().front();
 
-    // The online correlative scan matcher will refine the initial estimate for
-    // the Ceres scan matcher
-    transform::Rigid2d initial_ceres_pose = pose_prediction_2d;
-    if (options_.use_online_correlative_scan_matching()) {
-      const double score = real_time_correlative_scan_matcher_.Match(
-          pose_prediction_2d, adaptive_filtered, *matching_submap->grid(),
-          &initial_ceres_pose);
-      kRealTimeCorrelativeScanMatcherScoreMetric->Observe(score);
-    }
-
+    const transform::Rigid2d initial_ceres_pose = pose_prediction_2d;
     transform::Rigid2d pose_observation;
     ceres::Solver::Summary summary;
     ceres_scan_matcher_.Match(

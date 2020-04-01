@@ -144,6 +144,10 @@ class Submap2D : public Submap {
     return circle_features_;
   }
 
+  virtual cartographer::io::UniqueCairoSurfacePtr DrawSurface() const override {
+    return grid_->DrawSurface();
+  }
+
  private:
   std::vector<CircleFeature> circle_features_;
   std::vector<CircleFeatureSmoother> circle_feature_smoothers_;

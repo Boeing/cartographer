@@ -613,7 +613,7 @@ void PoseGraph2D::DrainWorkQueue() {
     }
     process_work_queue = work_item() == WorkItem::Result::kDoNotRunOptimization;
   }
-  LOG(INFO) << "Remaining work items in queue: " << work_queue_size;
+//  LOG(INFO) << "Remaining work items in queue: " << work_queue_size;
 
   // We have to optimize again.
   constraint_builder_.WhenDone(

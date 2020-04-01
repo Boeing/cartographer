@@ -38,7 +38,7 @@ class TransformInterpolationBuffer {
   // buffer size limit is exceeded.
   void Push(common::Time time, const transform::Rigid3d& transform);
 
-  // Returns true if an interpolated transfrom can be computed at 'time'.
+  // Returns true if an interpolated transform can be computed at 'time'.
   bool Has(common::Time time) const;
 
   // Returns an interpolated transform at 'time'. CHECK()s that a transform at
