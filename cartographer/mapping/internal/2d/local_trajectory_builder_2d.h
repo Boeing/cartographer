@@ -24,7 +24,6 @@
 #include "cartographer/mapping/2d/active_submaps_2d.h"
 #include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/mapping/internal/2d/scan_matching/ceres_scan_matcher_2d.h"
-#include "cartographer/mapping/internal/2d/scan_matching/real_time_correlative_scan_matcher_2d.h"
 #include "cartographer/mapping/internal/motion_filter.h"
 #include "cartographer/mapping/internal/range_data_collator.h"
 #include "cartographer/mapping/pose_extrapolator.h"
@@ -86,8 +85,6 @@ class LocalTrajectoryBuilder2D {
   ActiveSubmaps2D active_submaps_;
 
   MotionFilter motion_filter_;
-  scan_matching::RealTimeCorrelativeScanMatcher2D
-      real_time_correlative_scan_matcher_;
   scan_matching::CeresScanMatcher2D ceres_scan_matcher_;
 
   std::unique_ptr<PoseExtrapolator> extrapolator_;

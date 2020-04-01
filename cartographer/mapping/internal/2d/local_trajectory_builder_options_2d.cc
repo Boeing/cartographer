@@ -52,23 +52,14 @@ proto::LocalTrajectoryBuilderOptions2D CreateLocalTrajectoryBuilderOptions2D(
 
   options.set_voxel_filter_size(
       parameter_dictionary->GetDouble("voxel_filter_size"));
-  options.set_use_online_correlative_scan_matching(
-      parameter_dictionary->GetBool("use_online_correlative_scan_matching"));
   *options.mutable_adaptive_voxel_filter_options() =
       sensor::CreateAdaptiveVoxelFilterOptions(
           parameter_dictionary->GetDictionary("adaptive_voxel_filter").get());
-  *options.mutable_real_time_correlative_scan_matcher_options() =
-      mapping::scan_matching::CreateRealTimeCorrelativeScanMatcherOptions(
-          parameter_dictionary
-              ->GetDictionary("real_time_correlative_scan_matcher")
-              .get());
   *options.mutable_ceres_scan_matcher_options() =
       mapping::scan_matching::CreateCeresScanMatcherOptions2D(
           parameter_dictionary->GetDictionary("ceres_scan_matcher").get());
   *options.mutable_motion_filter_options() = mapping::CreateMotionFilterOptions(
       parameter_dictionary->GetDictionary("motion_filter").get());
-  options.set_imu_gravity_time_constant(
-      parameter_dictionary->GetDouble("imu_gravity_time_constant"));
   *options.mutable_submaps_options() = CreateSubmapsOptions2D(
       parameter_dictionary->GetDictionary("submaps").get());
   return options;

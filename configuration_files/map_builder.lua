@@ -21,26 +21,26 @@ MAP_BUILDER = {
                 },
             },
             global_icp_scan_matcher_options_2d = {
-                num_global_samples = 200,
+                num_global_samples = 400,
                 num_global_rotations = 32,
 
-                proposal_point_inlier_threshold = 0.4,
-                proposal_feature_inlier_threshold = 0.4,
+                proposal_point_inlier_threshold = 0.8,
+                proposal_feature_inlier_threshold = 0.8,
 
-                proposal_min_points_inlier_fraction = 0.3,
+                proposal_min_points_inlier_fraction = 0.2,
                 proposal_min_features_inlier_fraction = 0.5,
 
-                proposal_features_weight = 10.0,
+                proposal_features_weight = 1.0,
                 proposal_points_weight = 1.0,
 
                 proposal_raytracing_max_error = 1.0,
 
-                proposal_max_points_error = 0.6,
-                proposal_max_features_error = 0.6,
-                proposal_max_error = 0.4,
+                proposal_max_points_error = 0.8,
+                proposal_max_features_error = 0.8,
+                proposal_max_error = 0.8,
 
-                min_cluster_size = 3,
-                min_cluster_distance = 0.5,
+                min_cluster_size = 1,
+                min_cluster_distance = 1.0,
 
                 num_local_samples = 40,
 
@@ -57,8 +57,8 @@ MAP_BUILDER = {
                     point_weight = 1.0,
                     feature_weight = 10.0,
 
-                    point_inlier_threshold = 1.0,
-                    feature_inlier_threshold = 1.0,
+                    point_inlier_threshold = 0.4,
+                    feature_inlier_threshold = 0.4,
                 }
             },
             min_icp_score = 0.98,
@@ -74,11 +74,13 @@ MAP_BUILDER = {
         optimization_problem = {
             huber_scale = 1e1, -- only for inter-submap constraints
 
-            local_slam_pose_translation_weight = 1,
-            local_slam_pose_rotation_weight = 1,
+            -- these are between nodes based on front-end mapping
+            local_slam_pose_translation_weight = 0,
+            local_slam_pose_rotation_weight = 0,
 
-            odometry_translation_weight = 1,
-            odometry_rotation_weight = 1,
+            -- these are between nodes based on odom topic
+            odometry_translation_weight = 0,
+            odometry_rotation_weight = 0,
 
             fixed_frame_pose_translation_weight = 1e1, -- only in 3d
             fixed_frame_pose_rotation_weight = 1e2, -- only in 3d

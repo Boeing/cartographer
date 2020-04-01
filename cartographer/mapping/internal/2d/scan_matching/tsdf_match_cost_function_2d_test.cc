@@ -15,7 +15,7 @@
  */
 
 #include "cartographer/mapping/internal/2d/scan_matching/tsdf_match_cost_function_2d.h"
-
+#include "cartographer/mapping/proto/2d/tsdf_range_data_inserter_options_2d.pb.h"
 #include "cartographer/common/lua_parameter_dictionary.h"
 #include "cartographer/common/lua_parameter_dictionary_test_helpers.h"
 #include "cartographer/mapping/2d/tsdf_2d.h"
@@ -66,7 +66,7 @@ class TSDFSpaceCostFunction2DTest : public ::testing::Test {
   }
 
   ValueConversionTables conversion_tables_;
-  proto::TSDFRangeDataInserterOptions2D options_;
+  cartographer::mapping::proto::TSDFRangeDataInserterOptions2D options_;
   TSDF2D tsdf_;
   std::unique_ptr<TSDFRangeDataInserter2D> range_data_inserter_;
 };

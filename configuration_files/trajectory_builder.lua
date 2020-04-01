@@ -7,7 +7,7 @@ TRAJECTORY_BUILDER = {
         missing_data_ray_length = 12.,
 
         circle_feature_options = {
-            detect_radii = {0.07}
+            detect_radii = {0.06}
         },
 
         num_accumulated_range_data = 1,
@@ -20,13 +20,6 @@ TRAJECTORY_BUILDER = {
             max_length = 0.5,
             min_num_points = 200,
             max_range = 50.,
-        },
-        use_online_correlative_scan_matching = false,
-        real_time_correlative_scan_matcher = {
-            linear_search_window = 0.06,
-            angular_search_window = math.rad(5.),
-            translation_delta_cost_weight = 1e-1,
-            rotation_delta_cost_weight = 1e-1,
         },
         ceres_scan_matcher = {
             occupied_space_weight = 10.,
@@ -43,7 +36,6 @@ TRAJECTORY_BUILDER = {
             max_distance_meters = 0.1,
             max_angle_radians = math.rad(10.0),
         },
-        imu_gravity_time_constant = 10.,
         submaps = {
             num_range_data = 30,
             grid_options_2d = {

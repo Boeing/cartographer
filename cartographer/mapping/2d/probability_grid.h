@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "cartographer/common/port.h"
-#include "cartographer/io/submap_painter.h"
 #include "cartographer/mapping/2d/grid_2d.h"
 #include "cartographer/mapping/2d/map_limits.h"
 #include "cartographer/mapping/2d/xy_index.h"
@@ -62,7 +61,7 @@ class ProbabilityGrid : public Grid2D {
       proto::SubmapQuery::Response::SubmapTexture* const texture,
       transform::Rigid3d local_pose) const override;
 
-  cartographer::io::UniqueCairoSurfacePtr DrawSurface() const;
+  virtual cartographer::io::UniqueCairoSurfacePtr DrawSurface() const override;
 
  private:
   ValueConversionTables* conversion_tables_;
