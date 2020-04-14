@@ -160,7 +160,7 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
 
   // The first submap needs a minimum amount of range data before a scan match
   // will be accurate
-  const int min_num_range_data = 10;
+  const int min_num_range_data = 20;
   const bool submap_init =
       !active_submaps_.submaps().empty() && active_submaps_.submaps().front()->num_range_data() > min_num_range_data;
 
@@ -196,17 +196,17 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
 
   const transform::Rigid3d pose_estimate = transform::Embed3D(pose_estimate_2d);
 
-  if (scan_match_shift.translation().norm() > 0.01) {
+  if (scan_match_shift.translation().norm() > 0.02) {
     LOG(WARNING) << "Excessive scan match shift: "
                  << scan_match_shift.translation().transpose();
   }
-
-  extrapolator_->AddPose(time, pose_estimate);
 
   const bool is_similar = motion_filter_.IsSimilar(time, pose_estimate);
   if (submap_init && is_similar) {
     return nullptr;
   }
+
+  extrapolator_->AddPose(time, pose_estimate);
 
   const auto range_data_in_local =
       TransformRangeData(range_data_wrt_tracking,
