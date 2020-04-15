@@ -119,9 +119,20 @@ class GlobalICPScanMatcher2D {
  private:
   const Submap2D& submap_;
 
-  bool evaluateSample(SamplePose& sample_pose,
-                      const sensor::PointCloud& rotated_scan,
-                      const std::vector<CircleFeature>& features);
+  enum class EvaluationResult {
+    GOOD = 0,
+    FEATURES_NO_MATCHING = 1,
+    FEATURES_LOW_INLIER = 2,
+    FEATURES_HIGH_ERROR = 3,
+    POINTS_NO_MATCHING = 4,
+    POINTS_LOW_INLIER = 5,
+    POINTS_HIGH_ERROR = 6,
+    HIGH_ERROR = 7,
+  };
+
+  EvaluationResult evaluateSample(SamplePose& sample_pose,
+                                  const sensor::PointCloud& rotated_scan,
+                                  const std::vector<CircleFeature>& features);
 
   const proto::GlobalICPScanMatcherOptions2D options_;
   const MapLimits limits_;

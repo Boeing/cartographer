@@ -52,10 +52,13 @@ proto::ConstraintBuilderOptions CreateConstraintBuilderOptions(
               .get());
 
   options.set_min_icp_score(parameter_dictionary->GetDouble("min_icp_score"));
-  options.set_min_icp_points_inlier_fraction(parameter_dictionary->GetDouble("min_icp_points_inlier_fraction"));
-  options.set_min_icp_features_inlier_fraction(parameter_dictionary->GetDouble("min_icp_features_inlier_fraction"));
+  options.set_min_icp_points_inlier_fraction(
+      parameter_dictionary->GetDouble("min_icp_points_inlier_fraction"));
+  options.set_min_icp_features_inlier_fraction(
+      parameter_dictionary->GetDouble("min_icp_features_inlier_fraction"));
 
-  options.set_min_hit_fraction(parameter_dictionary->GetDouble("min_hit_fraction"));
+  options.set_min_hit_fraction(
+      parameter_dictionary->GetDouble("min_hit_fraction"));
 
   return options;
 }

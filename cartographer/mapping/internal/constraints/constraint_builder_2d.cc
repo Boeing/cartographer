@@ -239,24 +239,34 @@ void ConstraintBuilder2D::ComputeConstraint(
             cluster_estimate, constant_data.filtered_point_cloud,
             constant_data.circle_features);
 
-    double icp_score = std::max(0.01, std::min(1., 1. - icp_match.summary.final_cost));
+    double icp_score =
+        std::max(0.01, std::min(1., 1. - icp_match.summary.final_cost));
 
-    const auto statistics = submap_scan_matcher->global_icp_scan_matcher->IcpSolver().EvalutateMatch(icp_match, constant_data.range_data);
+    const auto statistics =
+        submap_scan_matcher->global_icp_scan_matcher->IcpSolver()
+            .EvalutateMatch(icp_match, constant_data.range_data);
 
     const bool icp_good = icp_score > options_.min_icp_score();
-    const bool icp_points_inlier_good = icp_match.points_inlier_fraction > options_.min_icp_points_inlier_fraction();
-    const bool icp_features_inlier_good = icp_match.features_inlier_fraction > options_.min_icp_features_inlier_fraction();
+    const bool icp_points_inlier_good =
+        icp_match.points_inlier_fraction >
+        options_.min_icp_points_inlier_fraction();
+    const bool icp_features_inlier_good =
+        icp_match.features_inlier_fraction >
+        options_.min_icp_features_inlier_fraction();
     const bool hit_good = statistics.hit_fraction > options_.min_hit_fraction();
 
-    const bool match_successful = icp_good && icp_points_inlier_good && icp_features_inlier_good && hit_good;
+    const bool match_successful = icp_good && icp_points_inlier_good &&
+                                  icp_features_inlier_good && hit_good;
 
-    const float overall_score = static_cast<float>(icp_score * statistics.hit_fraction);
+    const float overall_score =
+        static_cast<float>(icp_score * statistics.hit_fraction);
 
-    LOG(INFO) << match_successful
-              << " (" << overall_score << ")"
+    LOG(INFO) << match_successful << " (" << overall_score << ")"
               << " icp: " << icp_score << "(" << icp_good << ")"
-              << " icp_p: " << icp_match.points_inlier_fraction << "(" << icp_points_inlier_good << ")"
-              << " icp_f: " << icp_match.features_inlier_fraction << "(" << icp_features_inlier_good << ")"
+              << " icp_p: " << icp_match.points_inlier_fraction << "("
+              << icp_points_inlier_good << ")"
+              << " icp_f: " << icp_match.features_inlier_fraction << "("
+              << icp_features_inlier_good << ")"
               << " hit: " << statistics.hit_fraction << "(" << hit_good << ")";
 
     if (match_successful && overall_score > score) {

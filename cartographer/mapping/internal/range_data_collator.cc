@@ -31,19 +31,16 @@ sensor::TimedPointCloudOriginData RangeDataCollator::AddRangeData(
   CHECK_NE(expected_sensor_ids_.count(sensor_id), 0);
 
   auto it = id_to_pending_data_.find(sensor_id);
-  if (it == id_to_pending_data_.end())
-  {
+  if (it == id_to_pending_data_.end()) {
     bool success;
-    std::tie(it, success) = id_to_pending_data_.emplace(sensor_id, timed_point_cloud_data);
-  }
-  else
-  {
+    std::tie(it, success) =
+        id_to_pending_data_.emplace(sensor_id, timed_point_cloud_data);
+  } else {
     it->second = timed_point_cloud_data;
   }
 
-  if (id_to_pending_data_.size() != expected_sensor_ids_.size())
-  {
-      return {};
+  if (id_to_pending_data_.size() != expected_sensor_ids_.size()) {
+    return {};
   }
 
   common::Time oldest_timestamp = it->second.time;
@@ -57,9 +54,11 @@ sensor::TimedPointCloudOriginData RangeDataCollator::AddRangeData(
   size_t idx = 0;
   for (const auto& pair : id_to_pending_data_) {
     result.origins.push_back(pair.second.origin);
-    const float time_correction = static_cast<float>(common::ToSeconds(pair.second.time - oldest_timestamp));
+    const float time_correction = static_cast<float>(
+        common::ToSeconds(pair.second.time - oldest_timestamp));
     for (const auto& p : pair.second.ranges) {
-      result.ranges.push_back(sensor::TimedPointCloudOriginData::RangeMeasurement{p, idx});
+      result.ranges.push_back(
+          sensor::TimedPointCloudOriginData::RangeMeasurement{p, idx});
       result.ranges.back().point_time.time += time_correction;
     }
     ++idx;

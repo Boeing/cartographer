@@ -25,9 +25,9 @@
 #include "cartographer/common/thread_pool.h"
 #include "cartographer/common/time.h"
 #include "cartographer/mapping/2d/active_submaps_2d.h"
+#include "cartographer/mapping/2d/probability_grid.h"
 #include "cartographer/mapping/2d/probability_grid_range_data_inserter_2d.h"
 #include "cartographer/mapping/2d/submap_2d.h"
-#include "cartographer/mapping/2d/probability_grid.h"
 #include "cartographer/transform/rigid_transform.h"
 #include "cartographer/transform/rigid_transform_test_helpers.h"
 #include "cartographer/transform/transform.h"
@@ -335,7 +335,8 @@ TEST_F(PoseGraph2DTest, OverlappingNodes) {
     const double noise_y = 0.0001 * distribution(rng);
     const double noise_orientation = 0.0001 * distribution(rng);
     transform::Rigid2d noise({noise_x, noise_y}, noise_orientation);
-    MoveRelativeWithNoise(transform::Rigid2d({0.15 * distribution(rng), 0.0}, 0.), noise);
+    MoveRelativeWithNoise(
+        transform::Rigid2d({0.15 * distribution(rng), 0.0}, 0.), noise);
     ground_truth.emplace_back(current_pose_);
     poses.emplace_back(noise * current_pose_);
   }
@@ -344,22 +345,28 @@ TEST_F(PoseGraph2DTest, OverlappingNodes) {
   LOG(INFO) << "Number of submaps: " << active_submaps_->submaps().size();
 
   auto submap = active_submaps_->submaps().front();
-  const ProbabilityGrid* pg = dynamic_cast<const ProbabilityGrid*>(submap->grid());
+  const ProbabilityGrid* pg =
+      dynamic_cast<const ProbabilityGrid*>(submap->grid());
 
-//  auto surface = pg->DrawSurface();
-//  cairo_surface_write_to_png(surface.get(), "test.png");
+  //  auto surface = pg->DrawSurface();
+  //  cairo_surface_write_to_png(surface.get(), "test.png");
   const auto nodes = pose_graph_->GetTrajectoryNodes();
 
   // check how many nodes exist
   ASSERT_THAT(nodes.size(), number_of_nodes);
-  ASSERT_THAT(ToVectorInt(nodes.trajectory_ids()), ::testing::ContainerEq(std::vector<int>{0}));
+  ASSERT_THAT(ToVectorInt(nodes.trajectory_ids()),
+              ::testing::ContainerEq(std::vector<int>{0}));
 
-  transform::Rigid2d true_movement = ground_truth.front().inverse() * ground_truth.back();
+  transform::Rigid2d true_movement =
+      ground_truth.front().inverse() * ground_truth.back();
   transform::Rigid2d movement_before = poses.front().inverse() * poses.back();
   transform::Rigid2d error_before = movement_before.inverse() * true_movement;
 
-  transform::Rigid3d optimized_movement = nodes.BeginOfTrajectory(0)->data.global_pose.inverse() * std::prev(nodes.EndOfTrajectory(0))->data.global_pose;
-  transform::Rigid2d optimized_error = transform::Project2D(optimized_movement).inverse() * true_movement;
+  transform::Rigid3d optimized_movement =
+      nodes.BeginOfTrajectory(0)->data.global_pose.inverse() *
+      std::prev(nodes.EndOfTrajectory(0))->data.global_pose;
+  transform::Rigid2d optimized_error =
+      transform::Project2D(optimized_movement).inverse() * true_movement;
 
   LOG(INFO) << "true_movement: " << true_movement;
   LOG(INFO) << "movement_before: " << movement_before;
@@ -368,8 +375,10 @@ TEST_F(PoseGraph2DTest, OverlappingNodes) {
   LOG(INFO) << "optimized_movement: " << optimized_movement;
   LOG(INFO) << "optimized_error: " << optimized_error;
 
-//  EXPECT_THAT(std::abs(optimized_error.normalized_angle()), ::testing::Lt(std::abs(error_before.normalized_angle())));
-//  EXPECT_THAT(optimized_error.translation().norm(), ::testing::Lt(error_before.translation().norm()));
+  //  EXPECT_THAT(std::abs(optimized_error.normalized_angle()),
+  //  ::testing::Lt(std::abs(error_before.normalized_angle())));
+  //  EXPECT_THAT(optimized_error.translation().norm(),
+  //  ::testing::Lt(error_before.translation().norm()));
 }
 
 }  // namespace

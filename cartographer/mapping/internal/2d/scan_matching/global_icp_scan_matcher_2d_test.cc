@@ -10,9 +10,9 @@
 #include <cartographer/io/submap_painter.h>
 #include "cartographer/common/lua_parameter_dictionary_test_helpers.h"
 #include "cartographer/mapping/2d/probability_grid.h"
+#include "cartographer/mapping/proto/2d/submaps_options_2d.pb.h"
 #include "cartographer/transform/rigid_transform_test_helpers.h"
 #include "cartographer/transform/transform.h"
-#include "cartographer/mapping/proto/2d/submaps_options_2d.pb.h"
 #include "gtest/gtest.h"
 
 namespace cartographer {
@@ -131,7 +131,7 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   icp_config.set_feature_inlier_threshold(1.0);
 
   proto::GlobalICPScanMatcherOptions2D global_icp_config;
-  global_icp_config.set_num_global_samples(400);
+  global_icp_config.set_num_global_samples_per_sq_m(4);
   global_icp_config.set_num_global_rotations(16);
 
   global_icp_config.set_proposal_point_inlier_threshold(1.0);
@@ -173,7 +173,8 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   LOG(INFO) << "Found " << match_result.poses.size() << " proposals";
 
   for (const auto proposal : match_result.poses)
-      LOG(INFO) << "Proposal: score: " << proposal.error << " inlier: " << proposal.points_inlier_fraction;
+    LOG(INFO) << "Proposal: score: " << proposal.error
+              << " inlier: " << proposal.points_inlier_fraction;
 
   LOG(INFO) << "DBScanCluster...";
   const auto clusters =
