@@ -16,15 +16,14 @@
 
 #include <random>
 
-#include "cartographer/mapping/internal/testing/test_helpers.h"
-#include "cartographer/mapping/internal/2d/scan_matching/ray_trace.h"
 #include "absl/memory/memory.h"
 #include "cartographer/common/config.h"
 #include "cartographer/common/configuration_file_resolver.h"
 #include "cartographer/common/lua_parameter_dictionary_test_helpers.h"
+#include "cartographer/mapping/internal/2d/scan_matching/ray_trace.h"
+#include "cartographer/mapping/internal/testing/test_helpers.h"
 #include "cartographer/sensor/timed_point_cloud_data.h"
 #include "cartographer/transform/transform.h"
-
 
 namespace cartographer {
 namespace mapping {
@@ -162,147 +161,149 @@ void AddToProtoGraph(const proto::PoseGraph::LandmarkPose& landmark,
   *pose_graph->add_landmark_poses() = landmark;
 }
 
-SimulationData GenerateSimulationData()
-{
-    std::mt19937 prng(42);
-    std::uniform_real_distribution<double> distribution(-1., 1.);
+SimulationData GenerateSimulationData() {
+  std::mt19937 prng(42);
+  std::uniform_real_distribution<double> distribution(-1., 1.);
 
-    const double resolution = 0.02;
-    const double side_length = 40.0;
-    const int cells = static_cast<int>(side_length / resolution);
+  const double resolution = 0.02;
+  const double side_length = 40.0;
+  const int cells = static_cast<int>(side_length / resolution);
 
-    SimulationData sim_data;
+  SimulationData sim_data;
 
-    ValueConversionTables conversion_tables;
-    sim_data.ground_truth = absl::make_unique<ProbabilityGrid>(
-        MapLimits(resolution, Eigen::Vector2d(side_length, side_length),
-                  CellLimits(cells, cells)),
-        &conversion_tables);
-    ProbabilityGrid& probability_grid = *sim_data.ground_truth;
+  ValueConversionTables conversion_tables;
+  sim_data.ground_truth = absl::make_unique<ProbabilityGrid>(
+      MapLimits(resolution, Eigen::Vector2d(side_length, side_length),
+                CellLimits(cells, cells)),
+      &conversion_tables);
+  ProbabilityGrid& probability_grid = *sim_data.ground_truth;
 
-    for (int ii = 0; ii < cells; ++ii)
-      for (int jj = 0; jj < cells; ++jj)
-        probability_grid.SetProbability({ii, jj}, 0.5);
+  for (int ii = 0; ii < cells; ++ii)
+    for (int jj = 0; jj < cells; ++jj)
+      probability_grid.SetProbability({ii, jj}, 0.5);
 
-    // insert some random box shapes
-    std::uniform_int_distribution<int> box_dist;
-    using param_t = std::uniform_int_distribution<>::param_type;
-    for (int i = 0; i < 40; ++i) {
-      const int box_size = box_dist(prng, param_t(50, 200));
-      const int box_x = box_dist(prng, param_t(0, cells));
-      const int box_y = box_dist(prng, param_t(0, cells));
+  // insert some random box shapes
+  std::uniform_int_distribution<int> box_dist;
+  using param_t = std::uniform_int_distribution<>::param_type;
+  for (int i = 0; i < 40; ++i) {
+    const int box_size = box_dist(prng, param_t(50, 200));
+    const int box_x = box_dist(prng, param_t(0, cells));
+    const int box_y = box_dist(prng, param_t(0, cells));
 
-      const float prob = 1.0;
+    const float prob = 1.0;
 
-      for (int jj = box_y; jj < box_y + box_size; ++jj) {
-        if (jj >= cells) break;
+    for (int jj = box_y; jj < box_y + box_size; ++jj) {
+      if (jj >= cells) break;
 
-        for (int ii = box_x; ii < box_x + box_size; ++ii) {
-          if (ii >= cells) break;
+      for (int ii = box_x; ii < box_x + box_size; ++ii) {
+        if (ii >= cells) break;
 
-          if (jj > box_y && jj < box_y + box_size - 1) {
-            if (ii > box_x && ii < box_x + box_size - 1) {
-              continue;
-            }
+        if (jj > box_y && jj < box_y + box_size - 1) {
+          if (ii > box_x && ii < box_x + box_size - 1) {
+            continue;
           }
+        }
 
+        probability_grid.SetProbability({ii, jj}, prob);
+      }
+    }
+    probability_grid.FinishUpdate();
+  }
+
+  // insert some random retro reflective poles
+  const double pole_radius = 0.06;
+  std::vector<std::pair<int, int>> pole_centers;
+  std::set<std::pair<int, int>> reflective_cells;
+  std::uniform_int_distribution<int> pole_dist;
+  using param_t = std::uniform_int_distribution<>::param_type;
+  for (int i = 0; i < 30; ++i) {
+    const int pole_size = static_cast<int>(pole_radius / resolution);
+    const int pole_x = pole_dist(prng, param_t(0, cells));
+    const int pole_y = pole_dist(prng, param_t(0, cells));
+
+    const float prob = 1.0;
+    const double r2 =
+        static_cast<double>(pole_size) * static_cast<double>(pole_size);
+
+    pole_centers.push_back({pole_x, pole_y});
+
+    for (int jj = pole_y - pole_size; jj <= pole_y + pole_size; ++jj) {
+      if (jj >= cells || jj < 0) break;
+
+      for (int ii = pole_x - pole_size; ii <= pole_x + pole_size; ++ii) {
+        if (ii >= cells || ii < 0) break;
+
+        const double w = static_cast<double>(ii - pole_x);
+        const double h = static_cast<double>(jj - pole_y);
+        const double _r2 = w * w + h * h;
+        if (_r2 <= r2) {
           probability_grid.SetProbability({ii, jj}, prob);
+          reflective_cells.insert({ii, jj});
         }
       }
-      probability_grid.FinishUpdate();
     }
+    probability_grid.FinishUpdate();
+  }
 
-    // insert some random retro reflective poles
-    const double pole_radius = 0.06;
-    std::vector<std::pair<int, int>> pole_centers;
-    std::set<std::pair<int, int>> reflective_cells;
-    std::uniform_int_distribution<int> pole_dist;
-    using param_t = std::uniform_int_distribution<>::param_type;
-    for (int i = 0; i < 30; ++i) {
-      const int pole_size = static_cast<int>(pole_radius / resolution);
-      const int pole_x = pole_dist(prng, param_t(0, cells));
-      const int pole_y = pole_dist(prng, param_t(0, cells));
+  transform::Rigid2f start_pose({side_length / 2.0, side_length / 2.0}, 0.);
 
-      const float prob = 1.0;
-      const double r2 =
-          static_cast<double>(pole_size) * static_cast<double>(pole_size);
+  const double sensor_hz = 10;
+  const double duration = 40;
+  const int num_of_data = sensor_hz * duration;
+  const int scan_points = 800;
 
-      pole_centers.push_back({pole_x, pole_y});
+  const double velocity_x = 0.01;
+  const double velocity_w = 0.2;
 
-      for (int jj = pole_y - pole_size; jj <= pole_y + pole_size; ++jj) {
-        if (jj >= cells || jj < 0) break;
+  for (int i = 0; i < num_of_data; ++i) {
+    const double seconds = (1.0 / sensor_hz) * i;
+    const common::Time time(common::FromSeconds(seconds));
 
-        for (int ii = pole_x - pole_size; ii <= pole_x + pole_size; ++ii) {
-          if (ii >= cells || ii < 0) break;
+    const transform::Rigid2f pose(
+        start_pose.translation() + Eigen::Vector2f(seconds * velocity_x, 0.),
+        velocity_w * seconds);
 
-          const double w = static_cast<double>(ii - pole_x);
-          const double h = static_cast<double>(jj - pole_y);
-          const double _r2 = w * w + h * h;
-          if (_r2 <= r2) {
-            probability_grid.SetProbability({ii, jj}, prob);
-            reflective_cells.insert({ii, jj});
-          }
-        }
+    const cartographer::sensor::OdometryData odom{
+        time, transform::Embed3D(pose.cast<double>()), Eigen::Vector3d{0, 0, 0},
+        Eigen::Vector3d{0, 0, 0}};
+
+    sensor::TimedPointCloud laser_scan;
+    for (int i = 0; i < scan_points; ++i) {
+      const float angle = static_cast<float>(i * 2. * M_PI / scan_points);
+      const float x = std::cos(angle);
+      const float y = std::sin(angle);
+      const Eigen::Vector2f dir(x, y);
+      const Eigen::Vector2f end = pose.translation() + dir * 30.;
+
+      const auto map_start =
+          probability_grid.limits().GetCellIndex(pose.translation());
+      const auto map_end = probability_grid.limits().GetCellIndex(end);
+
+      auto p = cartographer::mapping::scan_matching::raytraceLine(
+          probability_grid, map_start.x(), map_start.y(), map_end.x(),
+          map_end.y(), cells, 30.f / resolution);
+      if (p.x > 0 && p.y > 0) {
+        const auto real_p = probability_grid.limits().GetCellCenter({p.x, p.y});
+        const auto diff = real_p - pose.translation();
+        auto r = Eigen::AngleAxisf(-pose.rotation().angle(),
+                                   Eigen::Vector3f::UnitZ()) *
+                 Eigen::Vector3f{diff.x(), diff.y(), 0.f};
+        float intensity = 0;
+        if (reflective_cells.find({p.x, p.y}) != reflective_cells.end())
+          intensity = 9000;
+        laser_scan.push_back({r, 0.f, intensity});
       }
-      probability_grid.FinishUpdate();
     }
 
-    transform::Rigid2f start_pose({side_length / 2.0, side_length / 2.0}, 0.);
+    LOG(INFO) << "time: " << time << " " << seconds
+              << " odom: " << odom.pose.DebugString();
 
-    const double sensor_hz = 10;
-    const double duration = 40;
-    const int num_of_data = sensor_hz * duration;
-    const int scan_points = 800;
+    sim_data.data.push_back({cartographer::sensor::TimedPointCloudData{
+                                 time, Eigen::Vector3f{0, 0, 0}, laser_scan},
+                             odom});
+  }
 
-    const double velocity_x = 0.01;
-    const double velocity_w = 0.2;
-
-    for (int i=0; i<num_of_data; ++i)
-    {
-        const double seconds = (1.0 / sensor_hz) * i;
-        const common::Time time(common::FromSeconds(seconds));
-
-        const transform::Rigid2f pose(start_pose.translation() + Eigen::Vector2f(seconds*velocity_x, 0.), velocity_w*seconds);
-
-        const cartographer::sensor::OdometryData odom{
-          time,
-          transform::Embed3D(pose.cast<double>()),
-          Eigen::Vector3d{0, 0, 0},
-          Eigen::Vector3d{0, 0, 0}
-        };
-
-        sensor::TimedPointCloud laser_scan;
-        for (int i = 0; i < scan_points; ++i) {
-          const float angle = static_cast<float>(i * 2. * M_PI / scan_points);
-          const float x = std::cos(angle);
-          const float y = std::sin(angle);
-          const Eigen::Vector2f dir(x, y);
-          const Eigen::Vector2f end = pose.translation() + dir * 30.;
-
-          const auto map_start =
-              probability_grid.limits().GetCellIndex(pose.translation());
-          const auto map_end = probability_grid.limits().GetCellIndex(end);
-
-          auto p = cartographer::mapping::scan_matching::raytraceLine(probability_grid, map_start.x(), map_start.y(), map_end.x(), map_end.y(), cells, 30.f / resolution);
-          if (p.x > 0 && p.y > 0) {
-            const auto real_p = probability_grid.limits().GetCellCenter({p.x, p.y});
-            const auto diff = real_p - pose.translation();
-            auto r = Eigen::AngleAxisf(-pose.rotation().angle(),
-                                       Eigen::Vector3f::UnitZ()) *
-                     Eigen::Vector3f{diff.x(), diff.y(), 0.f};
-            float intensity = 0;
-            if (reflective_cells.find({p.x, p.y}) != reflective_cells.end())
-              intensity = 9000;
-            laser_scan.push_back({r, 0.f, intensity});
-          }
-        }
-
-        LOG(INFO) << "time: " << time << " " << seconds << " odom: " << odom.pose.DebugString();
-
-        sim_data.data.push_back({cartographer::sensor::TimedPointCloudData{time, Eigen::Vector3f{0, 0, 0}, laser_scan}, odom});
-    }
-
-    return sim_data;
+  return sim_data;
 }
 
 }  // namespace testing

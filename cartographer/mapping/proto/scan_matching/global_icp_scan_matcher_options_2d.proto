@@ -19,7 +19,7 @@ package cartographer.mapping.scan_matching.proto;
 import "cartographer/mapping/proto/scan_matching/icp_scan_matcher_options_2d.proto";
 
 message GlobalICPScanMatcherOptions2D {
-  int32 num_global_samples = 1;
+  int32 num_global_samples_per_sq_m = 1;
   int32 num_global_rotations = 2;
 
   double proposal_point_inlier_threshold = 3;

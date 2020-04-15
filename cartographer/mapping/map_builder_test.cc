@@ -32,7 +32,6 @@ using SensorId = cartographer::mapping::TrajectoryBuilderInterface::SensorId;
 const SensorId kRangeSensorId{SensorId::SensorType::RANGE, "range"};
 const SensorId kOdomSensorId{SensorId::SensorType::ODOMETRY, "odom"};
 
-
 constexpr double kDuration = 4.;         // Seconds.
 constexpr double kTimeStep = 0.1;        // Seconds.
 constexpr double kTravelDistance = 2.0;  // Meters.
@@ -191,7 +190,6 @@ class MapBuilderTestBase : public T {
                       min_num_points = 200,
                       max_range = 50.,
                   },
-                  use_online_correlative_scan_matching = false,
                   real_time_correlative_scan_matcher = {
                       linear_search_window = 0.06,
                       angular_search_window = math.rad(5.),
@@ -354,32 +352,42 @@ TEST_P(MapBuilderTestByGridType, LocalSlam2D) {
   if (GetParam() == GridType::TSDF) SetOptionsToTSDF2D();
   BuildMapBuilder();
 
-  int trajectory_id = map_builder_->AddTrajectoryBuilder({kRangeSensorId, kOdomSensorId}, trajectory_builder_options_, GetLocalSlamResultCallback());
+  int trajectory_id = map_builder_->AddTrajectoryBuilder(
+      {kRangeSensorId, kOdomSensorId}, trajectory_builder_options_,
+      GetLocalSlamResultCallback());
 
-  TrajectoryBuilderInterface* trajectory_builder =map_builder_->GetTrajectoryBuilder(trajectory_id);
+  TrajectoryBuilderInterface* trajectory_builder =
+      map_builder_->GetTrajectoryBuilder(trajectory_id);
 
-//  const auto measurements = testing::GenerateFakeRangeMeasurements(kTravelDistance, kDuration, kTimeStep);
+  //  const auto measurements =
+  //  testing::GenerateFakeRangeMeasurements(kTravelDistance, kDuration,
+  //  kTimeStep);
   const auto measurements = testing::GenerateSimulationData();
 
   for (const auto& measurement : measurements.data) {
-    trajectory_builder->AddSensorData(kRangeSensorId.id, measurement.laser_scan);
+    trajectory_builder->AddSensorData(kRangeSensorId.id,
+                                      measurement.laser_scan);
     trajectory_builder->AddSensorData(kOdomSensorId.id, measurement.odom);
   }
   map_builder_->FinishTrajectory(trajectory_id);
   map_builder_->pose_graph()->RunFinalOptimization();
 
-  const auto travelled = (measurements.data.back().odom.pose.inverse() * measurements.data.front().odom.pose);
-  const auto estimated = (local_slam_result_poses_.back().inverse() * local_slam_result_poses_.front());
+  const auto travelled = (measurements.data.back().odom.pose.inverse() *
+                          measurements.data.front().odom.pose);
+  const auto estimated = (local_slam_result_poses_.back().inverse() *
+                          local_slam_result_poses_.front());
 
   LOG(INFO) << "travelled: " << travelled.DebugString();
   LOG(INFO) << "estimated: " << estimated.DebugString();
 
   // print the submap
-  const auto submap = map_builder_->pose_graph()->GetAllSubmapData().at(SubmapId(0, 0));
+  const auto submap =
+      map_builder_->pose_graph()->GetAllSubmapData().at(SubmapId(0, 0));
   auto surface = submap.submap->DrawSurface();
   cairo_surface_write_to_png(surface.get(), "test.png");
 
-  EXPECT_NEAR(travelled.translation().norm(), estimated.translation().norm(), 0.06);
+  EXPECT_NEAR(travelled.translation().norm(), estimated.translation().norm(),
+              0.06);
 }
 
 TEST_P(MapBuilderTestByGridType, GlobalSlam2D) {

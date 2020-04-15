@@ -102,7 +102,8 @@ MapBuilderServer::MapBuilderServer(
   server_builder.RegisterHandler<handlers::WriteStateToFileHandler>();
   server_builder.RegisterHandler<handlers::SetLandmarkPoseHandler>();
   grpc_server_ = server_builder.Build();
-  grpc_server_->SetExecutionContext(absl::make_unique<MapBuilderContext<mapping::Submap2D>>(this));
+  grpc_server_->SetExecutionContext(
+      absl::make_unique<MapBuilderContext<mapping::Submap2D>>(this));
   map_builder_->pose_graph()->SetGlobalSlamOptimizationCallback(
       [this](const std::map<int, mapping::SubmapId>& last_optimized_submap_ids,
              const std::map<int, mapping::NodeId>& last_optimized_node_ids) {

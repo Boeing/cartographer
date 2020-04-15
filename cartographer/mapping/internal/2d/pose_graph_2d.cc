@@ -68,7 +68,10 @@ PoseGraph2D::PoseGraph2D(
 PoseGraph2D::~PoseGraph2D() {
   {
     absl::MutexLock locker(&work_queue_mutex_);
-    if (work_queue_) { work_queue_->clear(); work_queue_.reset(); };
+    if (work_queue_) {
+      work_queue_->clear();
+      work_queue_.reset();
+    };
   }
   WaitForAllComputations();
   absl::MutexLock locker(&work_queue_mutex_);
@@ -598,7 +601,7 @@ void PoseGraph2D::HandleWorkQueue(
 
 void PoseGraph2D::DrainWorkQueue() {
   bool process_work_queue = true;
-  size_t work_queue_size = 0;
+  //  size_t work_queue_size = 0;
   while (process_work_queue) {
     std::function<WorkItem::Result()> work_item;
     {
@@ -609,11 +612,11 @@ void PoseGraph2D::DrainWorkQueue() {
       }
       work_item = work_queue_->front().task;
       work_queue_->pop_front();
-      work_queue_size = work_queue_->size();
+      //      work_queue_size = work_queue_->size();
     }
     process_work_queue = work_item() == WorkItem::Result::kDoNotRunOptimization;
   }
-//  LOG(INFO) << "Remaining work items in queue: " << work_queue_size;
+  //  LOG(INFO) << "Remaining work items in queue: " << work_queue_size;
 
   // We have to optimize again.
   constraint_builder_.WhenDone(

@@ -60,7 +60,8 @@ TEST(RangeDataCollatorTest, SingleSensor) {
   EXPECT_EQ(output_0.ranges.size(), kNumSamples);
   EXPECT_TRUE(ArePointTimestampsSorted(output_0));
 
-  auto output_1 = collator.AddRangeData(sensor_id, CreateFakeRangeData(300, 500));
+  auto output_1 =
+      collator.AddRangeData(sensor_id, CreateFakeRangeData(300, 500));
   EXPECT_EQ(common::ToUniversal(output_1.time), 500);
   EXPECT_EQ(output_1.origins.size(), 1);
   ASSERT_EQ(output_1.ranges.size(), kNumSamples);
@@ -111,10 +112,12 @@ TEST(RangeDataCollatorTest, TwoSensors) {
 
   RangeDataCollator collator({sensor_0, sensor_1});
 
-  auto output_0 = collator.AddRangeData(sensor_0, CreateFakeRangeData(200, 300));
+  auto output_0 =
+      collator.AddRangeData(sensor_0, CreateFakeRangeData(200, 300));
   EXPECT_EQ(output_0.ranges.size(), 0);
 
-  auto output_1 = collator.AddRangeData(sensor_1, CreateFakeRangeData(-1000, 310));
+  auto output_1 =
+      collator.AddRangeData(sensor_1, CreateFakeRangeData(-1000, 310));
   EXPECT_EQ(output_1.origins.size(), 2);
 
   EXPECT_EQ(common::ToUniversal(output_1.time), 300);
@@ -123,7 +126,7 @@ TEST(RangeDataCollatorTest, TwoSensors) {
                   output_1.time +
                   common::FromSeconds(output_1.ranges[0].point_time.time)),
               -1000, 2);
-//  EXPECT_EQ(output_1.ranges.back().point_time.time, 0.f);
+  //  EXPECT_EQ(output_1.ranges.back().point_time.time, 0.f);
   EXPECT_TRUE(ArePointTimestampsSorted(output_1));
 }
 
@@ -132,11 +135,14 @@ TEST(RangeDataCollatorTest, ThreeSensors) {
   const std::string sensor_1 = "sensor_1";
   const std::string sensor_2 = "sensor_2";
   RangeDataCollator collator({sensor_0, sensor_1, sensor_2});
-  auto output_0 = collator.AddRangeData(sensor_0, CreateFakeRangeData(100, 200));
+  auto output_0 =
+      collator.AddRangeData(sensor_0, CreateFakeRangeData(100, 200));
   EXPECT_EQ(output_0.ranges.size(), 0);
-  auto output_1 = collator.AddRangeData(sensor_1, CreateFakeRangeData(199, 250));
+  auto output_1 =
+      collator.AddRangeData(sensor_1, CreateFakeRangeData(199, 250));
   EXPECT_EQ(output_1.ranges.size(), 0);
-  auto output_2 = collator.AddRangeData(sensor_2, CreateFakeRangeData(210, 300));
+  auto output_2 =
+      collator.AddRangeData(sensor_2, CreateFakeRangeData(210, 300));
   EXPECT_EQ(output_2.ranges.size(), kNumSamples * 3);
   EXPECT_TRUE(ArePointTimestampsSorted(output_2));
 }

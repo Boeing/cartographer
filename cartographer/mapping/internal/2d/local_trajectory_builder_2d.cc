@@ -162,7 +162,8 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   // will be accurate
   const int min_num_range_data = 20;
   const bool submap_init =
-      !active_submaps_.submaps().empty() && active_submaps_.submaps().front()->num_range_data() > min_num_range_data;
+      !active_submaps_.submaps().empty() &&
+      active_submaps_.submaps().front()->num_range_data() > min_num_range_data;
 
   // TODO scale scan match weight based on trust with odom
   // TODO put everything into the first submap until sensor is stabilized

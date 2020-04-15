@@ -185,7 +185,7 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
 
   transform::Rigid2d pose_estimate({inserted_pose.translation().x() + 0.2,
                                     inserted_pose.translation().y() + 0.2},
-                                    inserted_pose.rotation().angle() + 0.1);
+                                   inserted_pose.rotation().angle() + 0.1);
 
   auto surface = probability_grid.DrawSurface();
 

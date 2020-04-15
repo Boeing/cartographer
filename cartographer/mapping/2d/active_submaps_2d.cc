@@ -36,6 +36,15 @@ std::vector<std::shared_ptr<const Submap2D>> ActiveSubmaps2D::InsertRangeData(
     const std::vector<CircleFeature>& circle_features) {
   if (submaps_.empty() ||
       submaps_.back()->num_range_data() >= options_.num_range_data()) {
+    LOG(INFO) << "Adding Submap";
+
+    if (submaps_.size() >= 2) {
+      // This will crop the finished Submap before inserting a new Submap to
+      // reduce peak memory usage a bit.
+      CHECK(submaps_.front()->insertion_finished());
+      submaps_.erase(submaps_.begin());
+    }
+
     AddSubmap(range_data.origin.head<2>());
   }
   for (auto& submap : submaps_) {
@@ -43,6 +52,7 @@ std::vector<std::shared_ptr<const Submap2D>> ActiveSubmaps2D::InsertRangeData(
     submap->InsertCircleFeatures(circle_features);
   }
   if (submaps_.front()->num_range_data() >= 2 * options_.num_range_data()) {
+    LOG(INFO) << "Finishing Submap";
     submaps_.front()->Finish();
   }
   return std::vector<std::shared_ptr<const Submap2D>>(submaps_.begin(),
@@ -98,12 +108,6 @@ std::unique_ptr<GridInterface> ActiveSubmaps2D::CreateGrid(
 }
 
 void ActiveSubmaps2D::AddSubmap(const Eigen::Vector2f& origin) {
-  if (submaps_.size() >= 2) {
-    // This will crop the finished Submap before inserting a new Submap to
-    // reduce peak memory usage a bit.
-    CHECK(submaps_.front()->insertion_finished());
-    submaps_.erase(submaps_.begin());
-  }
   submaps_.push_back(absl::make_unique<Submap2D>(
       origin,
       std::unique_ptr<Grid2D>(
