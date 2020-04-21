@@ -52,6 +52,7 @@ class ICPScanMatcher2D {
     double agree_fraction;
     double miss_fraction;
     double hit_fraction;
+    double ray_trace_fraction;
   };
 
   Statistics EvalutateMatch(const Result& result,

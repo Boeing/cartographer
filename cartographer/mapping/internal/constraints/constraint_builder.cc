@@ -60,6 +60,9 @@ proto::ConstraintBuilderOptions CreateConstraintBuilderOptions(
   options.set_min_hit_fraction(
       parameter_dictionary->GetDouble("min_hit_fraction"));
 
+  options.set_min_ray_trace_fraction(
+      parameter_dictionary->GetDouble("min_ray_trace_fraction"));
+
   return options;
 }
 

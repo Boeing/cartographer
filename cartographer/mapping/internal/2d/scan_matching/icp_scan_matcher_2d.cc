@@ -259,61 +259,91 @@ ICPScanMatcher2D::Statistics ICPScanMatcher2D::EvalutateMatch(
   statistics.agree_fraction = 1.0;
   statistics.miss_fraction = 1.0;
   statistics.hit_fraction = 1.0;
-  {
-    auto pg = dynamic_cast<const mapping::ProbabilityGrid*>(submap_.grid());
+  statistics.ray_trace_fraction = 1.0;
 
-    int hit_count = 0;
+  auto pg = dynamic_cast<const mapping::ProbabilityGrid*>(submap_.grid());
 
-    const double max_distance = 6.0 * submap_.grid()->limits().resolution();
-    const double max_squared_distance = max_distance * max_distance;
+  int hit_count = 0;
+  int ray_trace_success_count = 0;
 
-    const size_t num_results = 1;
-    size_t ret_index;
-    double out_dist_sqr;
-    nanoflann::KNNResultSet<double> result_set(num_results);
-    double query_pt[2];
+  const double max_distance = 1.0 * submap_.grid()->limits().resolution();
+  const double max_squared_distance = max_distance * max_distance;
 
-    for (const auto& laser_return : range_data.returns) {
-      result_set.init(&ret_index, &out_dist_sqr);
-      const auto tr =
-          result.pose_estimate.cast<float>() * laser_return.position.head<2>();
-      query_pt[0] = static_cast<double>(tr.x());
-      query_pt[1] = static_cast<double>(tr.y());
-      kdtree_.kdtree->findNeighbors(result_set, &query_pt[0],
-                                    nanoflann::SearchParams(10));
-      if (out_dist_sqr < max_squared_distance) ++hit_count;
+  const size_t num_results = 1;
+  size_t ret_index;
+  double out_dist_sqr;
+  nanoflann::KNNResultSet<double> result_set(num_results);
+  double query_pt[2];
+
+  const auto mp_start = pg->limits().GetCellIndex(
+      result.pose_estimate.translation().cast<float>());
+
+  for (const auto& laser_return : range_data.returns) {
+    result_set.init(&ret_index, &out_dist_sqr);
+    const auto tr =
+        result.pose_estimate.cast<float>() * laser_return.position.head<2>();
+    query_pt[0] = static_cast<double>(tr.x());
+    query_pt[1] = static_cast<double>(tr.y());
+    kdtree_.kdtree->findNeighbors(result_set, &query_pt[0],
+                                  nanoflann::SearchParams(10));
+    if (out_dist_sqr < max_squared_distance) {
+      ++hit_count;
     }
-    if (!range_data.returns.empty())
-      statistics.hit_fraction = static_cast<double>(hit_count) /
-                                static_cast<double>(range_data.returns.size());
-
-    int miss_count = 0;
-    for (const auto& laser_miss : range_data.misses) {
-      const auto tr =
-          result.pose_estimate.cast<float>() * laser_miss.position.head<2>();
-      const auto mp_start = pg->limits().GetCellIndex(
-          result.pose_estimate.translation().cast<float>());
+    {
       const auto mp_end = pg->limits().GetCellIndex(tr);
-      const unsigned int max_cells = static_cast<unsigned int>(
-          static_cast<double>(laser_miss.position.norm()) /
-          pg->limits().resolution());
       const auto p = mapping::scan_matching::raytraceLine(
           *pg, mp_start.x(), mp_start.y(), mp_end.x(), mp_end.y(),
-          pg->limits().cell_limits().num_x_cells, max_cells);
-      if (p.x == -1 && p.y == -1) ++miss_count;
-    }
-    if (!range_data.misses.empty())
-      statistics.miss_fraction = static_cast<double>(miss_count) /
-                                 static_cast<double>(range_data.misses.size());
+          pg->limits().cell_limits().num_x_cells);
 
-    {
-      const int total_count = hit_count + miss_count;
-      const size_t total_sum =
-          range_data.misses.size() + range_data.returns.size();
-      if (total_sum > 0)
-        statistics.agree_fraction =
-            static_cast<double>(total_count) / static_cast<double>(total_sum);
+      // Consider point as valid if it is not behind occupied space
+      // this will return the first cell which is occupied
+      if (p.x != -1 && p.y != -1) {
+        const Eigen::Vector2f inter =
+            pg->limits().GetCellCenter(Eigen::Array2i(p.x, p.y));
+        const float dist_from_end =
+            Eigen::Vector2f(query_pt[0] - inter[0], query_pt[1] - inter[1])
+                .norm();
+        if (dist_from_end < 0.1) {
+          ++ray_trace_success_count;
+        }
+      } else {
+        ++ray_trace_success_count;
+      }
     }
+  }
+
+  if (!range_data.returns.empty()) {
+    statistics.hit_fraction = static_cast<double>(hit_count) /
+                              static_cast<double>(range_data.returns.size());
+    statistics.ray_trace_fraction =
+        static_cast<double>(ray_trace_success_count) /
+        static_cast<double>(range_data.returns.size());
+  }
+
+  int miss_count = 0;
+  for (const auto& laser_miss : range_data.misses) {
+    const auto tr =
+        result.pose_estimate.cast<float>() * laser_miss.position.head<2>();
+    const auto mp_end = pg->limits().GetCellIndex(tr);
+    const unsigned int max_cells = static_cast<unsigned int>(
+        static_cast<double>(laser_miss.position.norm()) /
+        pg->limits().resolution());
+    const auto p = mapping::scan_matching::raytraceLine(
+        *pg, mp_start.x(), mp_start.y(), mp_end.x(), mp_end.y(),
+        pg->limits().cell_limits().num_x_cells, max_cells);
+    if (p.x == -1 && p.y == -1) ++miss_count;
+  }
+  if (!range_data.misses.empty())
+    statistics.miss_fraction = static_cast<double>(miss_count) /
+                               static_cast<double>(range_data.misses.size());
+
+  {
+    const int total_count = hit_count + miss_count;
+    const size_t total_sum =
+        range_data.misses.size() + range_data.returns.size();
+    if (total_sum > 0)
+      statistics.agree_fraction =
+          static_cast<double>(total_count) / static_cast<double>(total_sum);
   }
 
   return statistics;
