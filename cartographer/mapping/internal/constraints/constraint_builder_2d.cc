@@ -288,11 +288,19 @@ void ConstraintBuilder2D::ComputeConstraint(
     const bool icp_features_inlier_good =
         icp_match.features_inlier_fraction >=
         options_.min_icp_features_inlier_fraction();
-    const bool hit_good =
-        statistics.hit_fraction >= options_.min_hit_fraction();
+
+    // More features mean we need less actual points to match
+    const double require_hit = std::max(
+        0.15, options_.min_hit_fraction() - 0.01 * icp_match.features_count);
+
+    const bool hit_good = statistics.hit_fraction >= require_hit;
+
+    const bool rt_good =
+        statistics.ray_trace_fraction >= options_.min_ray_trace_fraction();
 
     const bool match_successful = icp_good && icp_points_inlier_good &&
-                                  icp_features_inlier_good && hit_good;
+                                  icp_features_inlier_good && hit_good &&
+                                  rt_good;
 
     const float overall_score =
         static_cast<float>(icp_score * statistics.hit_fraction);
@@ -308,6 +316,8 @@ void ConstraintBuilder2D::ComputeConstraint(
               << constant_data.circle_features.size()
               << ")=" << icp_match.features_inlier_fraction << "("
               << icp_features_inlier_good << ")"
+              << " rt: " << statistics.ray_trace_fraction << "(" << rt_good
+              << ")"
               << " hit: " << statistics.hit_fraction << "(" << hit_good << ")";
 
     cluster_results[i] =
