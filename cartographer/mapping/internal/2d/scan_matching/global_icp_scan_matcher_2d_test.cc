@@ -178,7 +178,7 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
 
   LOG(INFO) << "DBScanCluster...";
   const auto clusters =
-      global_icp_scan_matcher.DBScanCluster(match_result.poses);
+      global_icp_scan_matcher.DBScanCluster(match_result.poses, unperturbed_point_cloud);
 
   LOG(INFO) << "Determined " << clusters.size() << " proposal clusters";
 

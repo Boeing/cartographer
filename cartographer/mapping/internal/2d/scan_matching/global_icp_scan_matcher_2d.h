@@ -72,7 +72,7 @@ class GlobalICPScanMatcher2D {
     double x;
     double y;
     double rotation;
-
+    SamplePose origin;
     std::vector<SamplePose> poses;
   };
 
@@ -110,7 +110,10 @@ class GlobalICPScanMatcher2D {
   Result Match(const sensor::PointCloud& point_cloud,
                const std::vector<CircleFeature>& features = {});
 
-  std::vector<PoseCluster> DBScanCluster(const std::vector<SamplePose>& poses);
+  std::vector<PoseCluster> DBScanCluster(
+      const std::vector<SamplePose>& poses,
+      const sensor::PointCloud& point_cloud,
+      const std::vector<CircleFeature>& features = {});
 
   const ICPScanMatcher2D& IcpSolver() const { return icp_solver_; }
 

@@ -53,6 +53,8 @@ proto::GlobalICPScanMatcherOptions2D CreateGlobalICPScanMatcherOptions2D(
 
   options.set_min_cluster_size(
       parameter_dictionary->GetInt("min_cluster_size"));
+  options.set_max_cluster_size(
+      parameter_dictionary->GetInt("max_cluster_size"));
   options.set_min_cluster_distance(
       parameter_dictionary->GetDouble("min_cluster_distance"));
 
@@ -142,6 +144,7 @@ GlobalICPScanMatcher2D::GlobalICPScanMatcher2D(
   CHECK(options_.proposal_max_error() > 0);
 
   CHECK(options_.min_cluster_size() > 0);
+  CHECK(options_.max_cluster_size() > 0);
   CHECK(options_.min_cluster_distance() > 0);
   CHECK(options_.num_local_samples() > 0);
   CHECK(options_.local_sample_linear_distance() > 0);
@@ -259,7 +262,9 @@ GlobalICPScanMatcher2D::EvaluationResult GlobalICPScanMatcher2D::evaluateSample(
   sample_pose.error = std::numeric_limits<double>::max();
 
   // filter based on features
-  if (!features.empty() &&
+  // since we don't 100% trust our features we need a minimum of 2 features to
+  // filter
+  if (features.size() >= 2 &&
       !icp_solver_.circle_feature_index().feature_set.data.empty()) {
     const Eigen::AngleAxisf rotation = Eigen::AngleAxisf(
         static_cast<float>(sample_pose.rotation), Eigen::Vector3f::UnitZ());
@@ -274,7 +279,7 @@ GlobalICPScanMatcher2D::EvaluationResult GlobalICPScanMatcher2D::evaluateSample(
         options_.proposal_feature_inlier_threshold() *
         options_.proposal_feature_inlier_threshold();
 
-    size_t count = 0;
+    std::size_t count = 0;
     sample_pose.features_error = 0.0;
     for (std::size_t p = 0; p < features.size(); ++p) {
       result_set.init(&ret_index, &out_dist_sqr);
@@ -287,13 +292,13 @@ GlobalICPScanMatcher2D::EvaluationResult GlobalICPScanMatcher2D::evaluateSample(
       icp_solver_.circle_feature_index().kdtree->findNeighbors(
           result_set, &query_pt[0], nanoflann::SearchParams(10));
 
-      const double dx = query_pt[0] - icp_solver_.circle_feature_index()
-                                          .feature_set.data[ret_index]
-                                          .keypoint.position.x();
-      const double dy = query_pt[1] - icp_solver_.circle_feature_index()
-                                          .feature_set.data[ret_index]
-                                          .keypoint.position.y();
-      const double err2 = dx * dx + dy * dy;
+      const float dx = query_pt[0] - icp_solver_.circle_feature_index()
+                                         .feature_set.data[ret_index]
+                                         .keypoint.position.x();
+      const float dy = query_pt[1] - icp_solver_.circle_feature_index()
+                                         .feature_set.data[ret_index]
+                                         .keypoint.position.y();
+      const float err2 = dx * dx + dy * dy;
 
       if (err2 < feature_inlier_threshold_squared) {
         sample_pose.features_error += static_cast<double>(std::sqrt(err2));
@@ -333,7 +338,7 @@ GlobalICPScanMatcher2D::EvaluationResult GlobalICPScanMatcher2D::evaluateSample(
     nanoflann::KNNResultSet<double> result_set(num_results);
     double query_pt[2];
 
-    size_t count = 0;
+    std::size_t count = 0;
     sample_pose.points_error = 0.0;
     for (std::size_t p = 0; p < rotated_scan.size(); ++p) {
       result_set.init(&ret_index, &out_dist_sqr);
@@ -420,7 +425,9 @@ GlobalICPScanMatcher2D::EvaluationResult GlobalICPScanMatcher2D::evaluateSample(
 }
 
 std::vector<GlobalICPScanMatcher2D::PoseCluster>
-GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
+GlobalICPScanMatcher2D::DBScanCluster(
+    const std::vector<SamplePose>& poses, const sensor::PointCloud& point_cloud,
+    const std::vector<CircleFeature>& features) {
   int cluster_counter = 0;
   static constexpr int UNDEFINED = -1;
   static constexpr int NOISE = -2;
@@ -471,6 +478,10 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
 
       cluster.poses.push_back(sample_pose_data.data[match.first]);
 
+      // max cluster size
+      if (static_cast<int>(cluster.poses.size()) > options_.max_cluster_size())
+        break;
+
       {
         double sub_query_pt[3] = {kdtree.dataset.kdtree_get_pt(match.first, 0),
                                   kdtree.dataset.kdtree_get_pt(match.first, 1),
@@ -494,7 +505,11 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
     double rotation_y = 0;
     double weights_sum = 0;
     for (std::size_t p = 0; p < cluster.poses.size(); ++p) {
-      const double weight = 1.0 / std::max(0.01, cluster.poses[p].error);
+      // multiply the error by the inlier fraction here
+      // this makes proposals which use more of the points better
+      const double weight =
+          1.0 / std::max(0.01, cluster.poses[p].error *
+                                   cluster.poses[p].points_inlier_fraction);
       cluster.x += weight * cluster.poses[p].x;
       cluster.y += weight * cluster.poses[p].y;
       rotation_x += weight * std::cos(cluster.poses[p].rotation);
@@ -507,7 +522,25 @@ GlobalICPScanMatcher2D::DBScanCluster(const std::vector<SamplePose>& poses) {
     rotation_y /= weights_sum;
     cluster.rotation = std::atan2(rotation_y, rotation_x);
 
-    clusters.push_back(cluster);
+    // evaluate the cluster origin
+    {
+      cluster.origin.rotation = cluster.rotation;
+      cluster.origin.x = cluster.x;
+      cluster.origin.y = cluster.y;
+
+      const Eigen::AngleAxisf rotation = Eigen::AngleAxisf(
+          static_cast<float>(cluster.rotation), Eigen::Vector3f::UnitZ());
+      const transform::Rigid3f transform(transform::Rigid3f::Vector(0, 0, 0),
+                                         rotation);
+      const auto scan_data =
+          sensor::TransformPointCloud(point_cloud, transform);
+
+      if (evaluateSample(cluster.origin, scan_data, features) ==
+          EvaluationResult::GOOD)
+        clusters.push_back(cluster);
+      else
+        LOG(INFO) << "Rejecting cluster origin";
+    }
   }
 
   return clusters;

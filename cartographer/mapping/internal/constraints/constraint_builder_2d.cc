@@ -44,6 +44,14 @@ namespace cartographer {
 namespace mapping {
 namespace constraints {
 
+namespace {
+
+double calculateICPscore(const double cost) {
+  return std::max(0.01, std::min(1., 1. - cost));
+}
+
+}  // namespace
+
 static auto* kConstraintsSearchedMetric = metrics::Counter::Null();
 static auto* kConstraintsFoundMetric = metrics::Counter::Null();
 static auto* kGlobalConstraintsSearchedMetric = metrics::Counter::Null();
@@ -191,8 +199,6 @@ void ConstraintBuilder2D::ComputeConstraint(
   // - the initial guess 'initial_pose' for (map <- node j),
   // - the result 'pose_estimate' of Match() (map <- node j).
   // - the ComputeSubmapPose() (map <- submap i)
-  float score = 0.;
-  transform::Rigid2d pose_estimate = transform::Rigid2d::Identity();
 
   CHECK(submap_scan_matcher->global_icp_scan_matcher);
   const auto t0 = std::chrono::steady_clock::now();
@@ -208,12 +214,14 @@ void ConstraintBuilder2D::ComputeConstraint(
   } else {
     kConstraintsSearchedMetric->Increment();
     match_result = submap_scan_matcher->global_icp_scan_matcher->Match(
-        initial_pose, constant_data.filtered_point_cloud);
+        initial_pose, constant_data.filtered_point_cloud,
+        constant_data.circle_features);
   }
 
   const auto clusters =
       submap_scan_matcher->global_icp_scan_matcher->DBScanCluster(
-          match_result.poses);
+          match_result.poses, constant_data.filtered_point_cloud,
+          constant_data.circle_features);
 
   LOG(INFO) << "Found " << match_result.poses.size() << " good proposals"
             << " (took: "
@@ -222,38 +230,66 @@ void ConstraintBuilder2D::ComputeConstraint(
                    .count()
             << ") with " << clusters.size() << " clusters";
 
-  transform::Rigid2d icp_pose_proposal = transform::Rigid2d::Identity();
-  cartographer::mapping::scan_matching::ICPScanMatcher2D::Result icp_result;
+  struct MatchResult {
+    float score;
+    transform::Rigid2d pose_estimate;
+    transform::Rigid2d icp_pose_proposal;
+    cartographer::mapping::scan_matching::ICPScanMatcher2D::Result icp_result;
+    bool success;
+  };
 
-  const auto test_tr = transform::Embed3D(pose_estimate.cast<float>());
-  const auto test_actual_tpc =
-      sensor::TransformPointCloud(constant_data.filtered_point_cloud, test_tr);
-
-  bool success = false;
+  MatchResult* best_match = nullptr;
+  std::vector<MatchResult> cluster_results(clusters.size());
   for (size_t i = 0; i < clusters.size(); ++i) {
     const transform::Rigid2d cluster_estimate({clusters[i].x, clusters[i].y},
                                               clusters[i].rotation);
 
-    auto icp_match =
-        submap_scan_matcher->global_icp_scan_matcher->IcpSolver().Match(
-            cluster_estimate, constant_data.filtered_point_cloud,
-            constant_data.circle_features);
+    // ICP the proposal
+    // Run ICP at a few different initial rotations about the proposal
+    // ICP is very sensitive to the initial conditions
+    // Sometimes the best convergence is a nearby rotation
+    // I'm not convinced this is necessary yet - more data required to confirm
+    cartographer::mapping::scan_matching::ICPScanMatcher2D::Result icp_match;
+    icp_match.summary.final_cost = std::numeric_limits<double>::max();
+    double best_score = 0;
+    for (int i = -2; i <= 2; ++i) {
+      const double angle_diff = 0.2 * i;
+      const transform::Rigid2d estimate(
+          cluster_estimate.translation(),
+          cluster_estimate.rotation().smallestAngle() + angle_diff);
 
-    double icp_score =
-        std::max(0.01, std::min(1., 1. - icp_match.summary.final_cost));
+      auto this_icp_match =
+          submap_scan_matcher->global_icp_scan_matcher->IcpSolver().Match(
+              estimate, constant_data.filtered_point_cloud,
+              constant_data.circle_features);
+      const double score =
+          calculateICPscore(this_icp_match.summary.final_cost) *
+          this_icp_match.points_inlier_fraction;
+      //        LOG(INFO) << "i: " << i << " icp: " <<
+      //        calculateICPscore(this_icp_match.summary.final_cost) << "
+      //        p_inlier: " << this_icp_match.points_inlier_fraction << " score:
+      //        " << score;
+      if (score > best_score) {
+        best_score = score;
+        icp_match = this_icp_match;
+      }
+    }
+
+    const double icp_score = calculateICPscore(icp_match.summary.final_cost);
 
     const auto statistics =
         submap_scan_matcher->global_icp_scan_matcher->IcpSolver()
             .EvalutateMatch(icp_match, constant_data.range_data);
 
-    const bool icp_good = icp_score > options_.min_icp_score();
+    const bool icp_good = icp_score >= options_.min_icp_score();
     const bool icp_points_inlier_good =
-        icp_match.points_inlier_fraction >
+        icp_match.points_inlier_fraction >=
         options_.min_icp_points_inlier_fraction();
     const bool icp_features_inlier_good =
-        icp_match.features_inlier_fraction >
+        icp_match.features_inlier_fraction >=
         options_.min_icp_features_inlier_fraction();
-    const bool hit_good = statistics.hit_fraction > options_.min_hit_fraction();
+    const bool hit_good =
+        statistics.hit_fraction >= options_.min_hit_fraction();
 
     const bool match_successful = icp_good && icp_points_inlier_good &&
                                   icp_features_inlier_good && hit_good;
@@ -261,21 +297,37 @@ void ConstraintBuilder2D::ComputeConstraint(
     const float overall_score =
         static_cast<float>(icp_score * statistics.hit_fraction);
 
-    LOG(INFO) << match_successful << " (" << overall_score << ")"
+    LOG(INFO) << match_successful << " (" << clusters[i].origin.error << " -> "
+              << overall_score << ")"
               << " icp: " << icp_score << "(" << icp_good << ")"
-              << " icp_p: " << icp_match.points_inlier_fraction << "("
+              << " p: (" << icp_match.points_count << "/"
+              << constant_data.filtered_point_cloud.size()
+              << ")=" << icp_match.points_inlier_fraction << "("
               << icp_points_inlier_good << ")"
-              << " icp_f: " << icp_match.features_inlier_fraction << "("
+              << " f: (" << icp_match.features_count << "/"
+              << constant_data.circle_features.size()
+              << ")=" << icp_match.features_inlier_fraction << "("
               << icp_features_inlier_good << ")"
               << " hit: " << statistics.hit_fraction << "(" << hit_good << ")";
 
-    if (match_successful && overall_score > score) {
-      score = overall_score;
-      pose_estimate = icp_match.pose_estimate;
-      icp_pose_proposal = cluster_estimate;
-      icp_result = icp_match;
-      success = true;
+    cluster_results[i] =
+        MatchResult{overall_score, icp_match.pose_estimate, cluster_estimate,
+                    icp_match, match_successful};
+
+    if (match_successful &&
+        (!best_match || overall_score > best_match->score)) {
+      best_match = &cluster_results[i];
     }
+  }
+
+  if (!best_match) {
+    for (auto& cr : cluster_results)
+      if (!best_match || cr.score > best_match->score) best_match = &cr;
+  }
+
+  if (best_match) {
+    LOG(INFO) << "best_match:  score: " << best_match->score
+              << " success: " << best_match->success;
   }
 
   //
@@ -289,6 +341,17 @@ void ConstraintBuilder2D::ComputeConstraint(
 
     cairo_t* cr = cairo_create(surface.get());
 
+    for (const auto& f : submap.CircleFeatures()) {
+      cairo_set_source_rgba(cr, 0.2, 0.2, 0.2, 0.5);
+      cairo_set_line_width(cr, 1.0);
+      const auto mp = grid->limits().GetCellIndex(
+          {f.keypoint.position.x(), f.keypoint.position.y()});
+      cairo_arc(cr, mp.x(), mp.y(), 20.0, 0, 2 * M_PI);
+      cairo_stroke(cr);
+      cairo_rectangle(cr, mp.x(), mp.y(), 1, 1);
+      cairo_fill(cr);
+    }
+
     for (const auto cell :
          submap_scan_matcher->global_icp_scan_matcher->IcpSolver()
              .kdtree()
@@ -300,37 +363,12 @@ void ConstraintBuilder2D::ComputeConstraint(
       cairo_fill(cr);
     }
 
-    for (std::size_t i = 0; i < match_result.poses.size(); ++i) {
-      const auto& match = match_result.poses[i];
-
-      auto dir = Eigen::Rotation2Df(match.rotation) * Eigen::Vector2f(10.0, 0);
-
-      cairo_set_line_width(cr, 1.0);
-
-      const auto mp = grid->limits().GetCellIndex({match.x, match.y});
-
-      cairo_set_source_rgba(cr, 0.1, 1.0, 0, 1.0);
-      cairo_new_path(cr);
-      cairo_move_to(cr, mp.x(), mp.y());
-      cairo_rectangle(cr, mp.x(), mp.y(), 2.0, 2.0);
-      cairo_line_to(cr, mp.x() - dir.y(), mp.y() - dir.x());
-      cairo_stroke(cr);
-
-      cairo_set_source_rgba(cr, 0, 0, 0, 1.0);
-      cairo_new_path(cr);
-      cairo_move_to(cr, mp.x(), mp.y());
-      cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL,
-                             CAIRO_FONT_WEIGHT_NORMAL);
-      cairo_set_font_size(cr, 8);
-      cairo_show_text(cr, std::to_string(match.error).c_str());
-    }
-
     for (const auto& cluster : clusters) {
       cairo_new_path(cr);
       cairo_set_source_rgba(cr, 1, 0, 0, 1);
       cairo_set_line_width(cr, 1.0);
       const auto mp = grid->limits().GetCellIndex({cluster.x, cluster.y});
-      cairo_arc(cr, mp.x(), mp.y(), 16.0, 0, 2 * M_PI);
+      cairo_arc(cr, mp.x(), mp.y(), 8.0, 0, 2 * M_PI);
       auto dir = Eigen::Rotation2Df(cluster.poses.front().rotation) *
                  Eigen::Vector2f(10.0, 0);
       cairo_stroke(cr);
@@ -343,46 +381,93 @@ void ConstraintBuilder2D::ComputeConstraint(
       std::random_device rd;
       std::mt19937 gen(rd());
 
-      const double c_g = dist(gen);
       const double c_b = dist(gen);
 
       for (const auto& pose : cluster.poses) {
         const auto _mp = grid->limits().GetCellIndex({pose.x, pose.y});
-        cairo_set_source_rgba(cr, 0.2, c_g, c_b, 0.8);
+        cairo_set_source_rgba(cr, 0.2, 0.2, c_b, 1.0);
         cairo_new_path(cr);
-        cairo_arc(cr, _mp.x(), _mp.y(), 14.0, 0, 2 * M_PI);
+        cairo_arc(cr, _mp.x(), _mp.y(), 4.0, 0, 2 * M_PI);
+        cairo_stroke(cr);
+
+        auto dir = Eigen::Rotation2Df(pose.rotation) * Eigen::Vector2f(5.0, 0);
+
+        cairo_new_path(cr);
+        cairo_move_to(cr, _mp.x(), _mp.y());
+        cairo_line_to(cr, _mp.x() - dir.y(), _mp.y() - dir.x());
         cairo_stroke(cr);
       }
     }
 
-    if (success) {
-      cairo_set_source_rgba(cr, 0.5, 1.0, 0, 1);
-      cairo_set_line_width(cr, 1.0);
+    for (const auto& match : cluster_results) {
+      if (match.success)
+        cairo_set_source_rgba(cr, 0.5, 1.0, 0, match.score);
+      else
+        cairo_set_source_rgba(cr, 1.0, 0.0, 0, match.score);
+      cairo_set_line_width(cr, 2.0);
+      cairo_new_path(cr);
+      const auto mp =
+          grid->limits().GetCellIndex({match.pose_estimate.translation().x(),
+                                       match.pose_estimate.translation().y()});
+      cairo_arc(cr, mp.x(), mp.y(), 14.0, 0, 2 * M_PI);
+      const auto dir = match.pose_estimate.rotation().cast<float>() *
+                       Eigen::Vector2f(30.0, 0);
+      cairo_stroke(cr);
+      cairo_new_path(cr);
+      cairo_move_to(cr, mp.x(), mp.y());
+      cairo_line_to(cr, mp.x() - dir.y(), mp.y() - dir.x());
+      cairo_stroke(cr);
+    }
+
+    // Visualise the best match
+    if (best_match) {
+      if (best_match->success)
+        cairo_set_source_rgba(cr, 0.5, 1.0, 0, 1);
+      else
+        cairo_set_source_rgba(cr, 1.0, 0.0, 0, 1);
+      cairo_set_line_width(cr, 2.0);
       cairo_new_path(cr);
       const auto mp = grid->limits().GetCellIndex(
-          {pose_estimate.translation().x(), pose_estimate.translation().y()});
+          {best_match->pose_estimate.translation().x(),
+           best_match->pose_estimate.translation().y()});
       cairo_arc(cr, mp.x(), mp.y(), 30.0, 0, 2 * M_PI);
-      const auto dir =
-          pose_estimate.rotation().cast<float>() * Eigen::Vector2f(30.0, 0);
+      const auto dir = best_match->pose_estimate.rotation().cast<float>() *
+                       Eigen::Vector2f(30.0, 0);
       cairo_stroke(cr);
       cairo_new_path(cr);
       cairo_move_to(cr, mp.x(), mp.y());
       cairo_line_to(cr, mp.x() - dir.y(), mp.y() - dir.x());
       cairo_stroke(cr);
 
+      cairo_set_line_width(cr, 1.0);
+
       const sensor::PointCloud actual_tpc = sensor::TransformPointCloud(
-          constant_data.filtered_point_cloud,
-          transform::Embed3D(pose_estimate.cast<float>()));
+          constant_data.range_data.returns,
+          transform::Embed3D(best_match->pose_estimate.cast<float>()));
       for (const auto& point : actual_tpc) {
-        cairo_set_source_rgba(cr, 0, 0, 1, 1);
         const auto mp = grid->limits().GetCellIndex(
             {point.position.x(), point.position.y()});
+        if (point.intensity > 0)
+          cairo_set_source_rgba(cr, 1, 1, 1, 1);
+        else
+          cairo_set_source_rgba(cr, 0, 0, 1, 1);
         cairo_rectangle(cr, mp.x(), mp.y(), 1, 1);
         cairo_fill(cr);
       }
 
-      for (const auto& pair : icp_result.pairs) {
-        cairo_set_source_rgba(cr, 0, 1, 0, 0.5);
+      const sensor::PointCloud actual_icp_tpc = sensor::TransformPointCloud(
+          constant_data.filtered_point_cloud,
+          transform::Embed3D(best_match->pose_estimate.cast<float>()));
+      for (const auto& point : actual_icp_tpc) {
+        const auto mp = grid->limits().GetCellIndex(
+            {point.position.x(), point.position.y()});
+        cairo_set_source_rgba(cr, 1, 0.75, 0.79, 1);
+        cairo_arc(cr, mp.x(), mp.y(), 4, 0, 2 * M_PI);
+        cairo_stroke(cr);
+      }
+
+      for (const auto& pair : best_match->icp_result.pairs) {
+        cairo_set_source_rgba(cr, 0, 1, 0, 1.0);
         cairo_set_line_width(cr, 1.0);
         const auto src = grid->limits().GetCellIndex(pair.first.cast<float>());
         const auto dst = grid->limits().GetCellIndex(pair.second.cast<float>());
@@ -392,8 +477,8 @@ void ConstraintBuilder2D::ComputeConstraint(
       }
 
       const auto proposal_tpc = sensor::TransformPointCloud(
-          constant_data.filtered_point_cloud,
-          transform::Embed3D(icp_pose_proposal.cast<float>()));
+          constant_data.range_data.returns,
+          transform::Embed3D(best_match->icp_pose_proposal.cast<float>()));
       for (const auto& point : proposal_tpc) {
         cairo_set_source_rgba(cr, 1, 0, 0, 1);
         const auto mp = grid->limits().GetCellIndex(
@@ -403,28 +488,15 @@ void ConstraintBuilder2D::ComputeConstraint(
       }
 
       for (const auto& f : constant_data.circle_features) {
-        cairo_set_source_rgba(cr, 1, 0.8, 0.2, 0.5);
-        cairo_set_line_width(cr, 1.0);
+        cairo_set_source_rgba(cr, 1, 0.8, 0.2, 1.0);
+        cairo_set_line_width(cr, 2.0);
         const auto tr =
-            pose_estimate.cast<float>() *
+            best_match->pose_estimate.cast<float>() *
             Eigen::Vector2f(f.keypoint.position.x(), f.keypoint.position.y());
         const auto mp = grid->limits().GetCellIndex(tr);
-        cairo_arc(cr, mp.x(), mp.y(), 16.0, 0, 2 * M_PI);
+        cairo_arc(cr, mp.x(), mp.y(), 10.0, 0, 2 * M_PI);
         cairo_stroke(cr);
-        cairo_rectangle(cr, mp.x(), mp.y(), 1, 1);
-        cairo_fill(cr);
       }
-    }
-
-    for (const auto& f : submap.CircleFeatures()) {
-      cairo_set_source_rgba(cr, 0.2, 0.2, 0.2, 0.5);
-      cairo_set_line_width(cr, 1.0);
-      const auto mp = grid->limits().GetCellIndex(
-          {f.keypoint.position.x(), f.keypoint.position.y()});
-      cairo_arc(cr, mp.x(), mp.y(), 20.0, 0, 2 * M_PI);
-      cairo_stroke(cr);
-      cairo_rectangle(cr, mp.x(), mp.y(), 1, 1);
-      cairo_fill(cr);
     }
 
     cairo_destroy(cr);
@@ -436,28 +508,31 @@ void ConstraintBuilder2D::ComputeConstraint(
     cairo_surface_write_to_png(surface.get(), fname.c_str());
   }
 
-  if (success &&
-      ((match_full_submap && score > options_.min_global_search_score()) ||
-       (!match_full_submap && score > options_.min_local_search_score()))) {
+  if (best_match && best_match->success &&
+      ((match_full_submap &&
+        best_match->score > options_.min_global_search_score()) ||
+       (!match_full_submap &&
+        best_match->score > options_.min_local_search_score()))) {
     CHECK_GE(node_id.trajectory_id, 0);
     CHECK_GE(submap_id.trajectory_id, 0);
 
     if (match_full_submap) {
       kGlobalConstraintsFoundMetric->Increment();
-      kGlobalConstraintScoresMetric->Observe(score);
+      kGlobalConstraintScoresMetric->Observe(best_match->score);
     } else {
       kConstraintsFoundMetric->Increment();
-      kConstraintScoresMetric->Observe(score);
+      kConstraintScoresMetric->Observe(best_match->score);
     }
 
     LOG(INFO) << "SUCCESS matching node_id: " << node_id
-              << " submap_id: " << submap_id << " score: " << score << " took: "
+              << " submap_id: " << submap_id << " score: " << best_match->score
+              << " took: "
               << std::chrono::duration_cast<std::chrono::duration<double>>(
                      std::chrono::steady_clock::now() - t0)
                      .count();
   } else {
     LOG(INFO) << "FAILED matching node_id: " << node_id
-              << " submap_id: " << submap_id << " score: " << score << " took: "
+              << " submap_id: " << submap_id << " took: "
               << std::chrono::duration_cast<std::chrono::duration<double>>(
                      std::chrono::steady_clock::now() - t0)
                      .count();
@@ -466,27 +541,27 @@ void ConstraintBuilder2D::ComputeConstraint(
 
   {
     absl::MutexLock locker(&mutex_);
-    score_histogram_.Add(score);
+    score_histogram_.Add(best_match->score);
   }
 
   // Use the CSM estimate as both the initial and previous pose. This has the
   // effect that, in the absence of better information, we prefer the original
   // CSM estimate.
   ceres::Solver::Summary unused_summary;
-  ceres_scan_matcher_.Match(pose_estimate.translation(), pose_estimate,
-                            constant_data.filtered_point_cloud,
-                            *submap_scan_matcher->submap.grid(), &pose_estimate,
-                            &unused_summary);
+  ceres_scan_matcher_.Match(
+      best_match->pose_estimate.translation(), best_match->pose_estimate,
+      constant_data.filtered_point_cloud, *submap_scan_matcher->submap.grid(),
+      &best_match->pose_estimate, &unused_summary);
 
   const transform::Rigid2d constraint_transform =
-      ComputeSubmapPose(submap).inverse() * pose_estimate;
-  constraint->reset(
-      new Constraint{submap_id,
-                     node_id,
-                     {transform::Embed3D(constraint_transform),
-                      score * options_.constraint_translation_weight(),
-                      score * options_.constraint_rotation_weight()},
-                     Constraint::INTER_SUBMAP});
+      ComputeSubmapPose(submap).inverse() * best_match->pose_estimate;
+  constraint->reset(new Constraint{
+      submap_id,
+      node_id,
+      {transform::Embed3D(constraint_transform),
+       best_match->score * options_.constraint_translation_weight(),
+       best_match->score * options_.constraint_rotation_weight()},
+      Constraint::INTER_SUBMAP});
 
   if (options_.log_matches()) {
     std::ostringstream info;
@@ -497,12 +572,13 @@ void ConstraintBuilder2D::ComputeConstraint(
       info << " matches";
     } else {
       const transform::Rigid2d difference =
-          initial_pose.inverse() * pose_estimate;
+          initial_pose.inverse() * best_match->pose_estimate;
       info << " differs by translation " << std::setprecision(2)
            << difference.translation().norm() << " rotation "
            << std::setprecision(3) << std::abs(difference.normalized_angle());
     }
-    info << " with score " << std::setprecision(1) << 100. * score << "%.";
+    info << " with score " << std::setprecision(1) << 100. * best_match->score
+         << "%.";
     LOG(INFO) << info.str();
   }
 }

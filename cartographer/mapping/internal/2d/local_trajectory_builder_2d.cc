@@ -216,14 +216,14 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   // Detect features
   std::vector<CircleFeature> circle_features;
   for (const auto radius : options_.circle_feature_options().detect_radii()) {
-    //    LOG(INFO) << "Searching for circles of radius: " << radius;
+    // LOG(INFO) << "Searching for circles of radius: " << radius;
     const auto pole_features =
         DetectReflectivePoles(range_data_wrt_tracking.returns, radius);
     for (const auto& f : pole_features) {
       const auto p = f;
       const float xy_covariance = p.mse * p.position.norm();
-      //      LOG(INFO) << "Found circle: " << p.position.transpose() << " mse:
-      //      " << p.mse << " xy_cov: " << xy_covariance;
+      // LOG(INFO) << "Found circle: " << p.position.transpose() << " mse: " <<
+      // p.mse << " xy_cov: " << xy_covariance;
       circle_features.push_back(
           CircleFeature{Keypoint{{p.position.x(), p.position.y(), 0.f},
                                  {xy_covariance, xy_covariance, 0.f}},
