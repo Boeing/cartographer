@@ -38,12 +38,13 @@ message GlobalICPScanMatcherOptions2D {
   double proposal_max_error = 12;
 
   int32 min_cluster_size = 13;
-  double min_cluster_distance = 14;
+  int32 max_cluster_size = 14;
+  double min_cluster_distance = 15;
 
-  int32 num_local_samples = 15;
+  int32 num_local_samples = 16;
 
-  double local_sample_linear_distance = 16;
-  double local_sample_angular_distance = 17;
+  double local_sample_linear_distance = 17;
+  double local_sample_angular_distance = 18;
   
-  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 18;
+  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 19;
 }

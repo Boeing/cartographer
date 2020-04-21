@@ -1,19 +1,3 @@
-/*
- * Copyright 2017 The Cartographer Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "cartographer/mapping/pose_extrapolator.h"
 
 #include <algorithm>
@@ -29,40 +13,34 @@ namespace mapping {
 PoseExtrapolator::PoseExtrapolator()
     : cached_extrapolated_pose_{common::Time::min(),
                                 transform::Rigid3d::Identity(),
-                                transform::Rigid3d::Identity()} {}
+                                transform::Rigid3d::Identity()},
+      odometry_data_(2000) {}
 
 void PoseExtrapolator::AddPose(const common::Time time,
                                const transform::Rigid3d& pose) {
-  timed_pose_queue_.push_back(TimedPose{time, {pose}});
-  while (timed_pose_queue_.size() > 1) {
-    timed_pose_queue_.pop_front();
-  }
-  // only keep a max number of odom messages
-  while (odometry_data_.size() > 2000) {
-    odometry_data_.pop_front();
-  }
+  reference_pose_.reset(new TimedPose{time, {pose}});
 }
 
 void PoseExtrapolator::AddOdometryData(
     const sensor::OdometryData& odometry_data) {
-  CHECK(timed_pose_queue_.empty() ||
-        odometry_data.time >= timed_pose_queue_.back().time);
   odometry_data_.push_back(odometry_data);
 }
 
 PoseExtrapolator::Extrapolation PoseExtrapolator::ExtrapolatePose(
     const common::Time time) {
-  const TimedPose& newest_timed_pose = timed_pose_queue_.back();
-  CHECK_GE(time, newest_timed_pose.time);
+  CHECK(reference_pose_);
 
   if (odometry_data_.empty()) {
     cached_extrapolated_pose_.time = time;
-    cached_extrapolated_pose_.pose = newest_timed_pose.pose;
+    cached_extrapolated_pose_.pose = reference_pose_->pose;
     cached_extrapolated_pose_.motion = transform::Rigid3d::Identity();
     return cached_extrapolated_pose_;
   }
 
   if (cached_extrapolated_pose_.time != time) {
+    const TimedPose& newest_timed_pose = *reference_pose_;
+    CHECK_GE(time, newest_timed_pose.time);
+
     CHECK(!odometry_data_.empty());
 
     auto& odometry_data = odometry_data_;

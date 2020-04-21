@@ -35,6 +35,9 @@ class ICPScanMatcher2D {
     transform::Rigid2d pose_estimate;
     ceres::Solver::Summary summary;
 
+    int points_count;
+    int features_count;
+
     double points_inlier_fraction;
     double features_inlier_fraction;
 

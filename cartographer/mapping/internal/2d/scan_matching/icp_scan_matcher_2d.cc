@@ -180,10 +180,12 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
   }
 
   Result result;
+  result.points_count = included_points.size();
   result.points_inlier_fraction =
       !point_cloud.empty()
           ? static_cast<double>(included_points.size()) / point_cloud.size()
           : 1.0;
+  result.features_count = included_features.size();
   result.features_inlier_fraction =
       !features.empty()
           ? static_cast<double>(included_features.size()) / features.size()
@@ -439,10 +441,12 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::MatchPointPair(
   result.pose_estimate = transform::Rigid2d(
       {ceres_pose_estimate[0], ceres_pose_estimate[1]}, ceres_pose_estimate[2]);
 
+  result.points_count = points_count;
   result.points_inlier_fraction =
       !point_cloud.empty()
           ? static_cast<double>(points_count) / point_cloud.size()
           : 1.0;
+  result.features_count = features_count;
   result.features_inlier_fraction =
       !features.empty() ? static_cast<double>(features_count) / features.size()
                         : 1.0;
