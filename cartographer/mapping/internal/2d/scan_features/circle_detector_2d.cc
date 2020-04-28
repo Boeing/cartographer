@@ -129,22 +129,22 @@ class CircleCostFunction {
   const float squared_sum_;
 };
 
-struct DataSet {
-  struct Cell {
-    int x;
-    int y;
-    float cost;
-  };
+template <typename T>
+struct DetectCircle {
+  Circle<T> circle;
+  std::vector<std::size_t> point_indexes;
+};
 
-  std::vector<Cell> cells;
+struct DataSet {
+  std::vector<DetectCircle<float>> cells;
 
   inline size_t kdtree_get_point_count() const { return cells.size(); }
 
-  inline int kdtree_get_pt(const size_t idx, const size_t dim) const {
+  inline float kdtree_get_pt(const size_t idx, const size_t dim) const {
     if (dim == 0)
-      return cells[idx].x;
+      return cells[idx].circle.position.x();
     else
-      return cells[idx].y;
+      return cells[idx].circle.position.y();
   }
 
   template <class BBOX>
@@ -154,8 +154,123 @@ struct DataSet {
 };
 
 typedef nanoflann::KDTreeSingleIndexAdaptor<
-    nanoflann::L2_Simple_Adaptor<int, DataSet, double>, DataSet, 2>
+    nanoflann::L2_Simple_Adaptor<float, DataSet, float>, DataSet, 2>
     KDTree;
+
+std::vector<Circle<float>> DBScan(
+    const std::vector<DetectCircle<float>>& detections,
+    const sensor::PointCloud& point_cloud, const float excl_radius,
+    const float min_cluster_distance, const size_t min_cluster_size) {
+  int cluster_counter = 0;
+  static constexpr int UNDEFINED = -1;
+  static constexpr int NOISE = -2;
+
+  DataSet data_set;
+  data_set.cells = detections;
+
+  KDTree kdtree(2, data_set, nanoflann::KDTreeSingleIndexAdaptorParams(10));
+  kdtree.buildIndex();
+
+  std::vector<Circle<float>> clusters;
+
+  std::vector<int> labels(data_set.cells.size(), UNDEFINED);
+
+  for (std::size_t i = 0; i < data_set.cells.size(); ++i) {
+    const auto& cell = data_set.cells[i];
+
+    if (labels[i] != UNDEFINED) {
+      continue;
+    }
+
+    float query_pt[2] = {cell.circle.position.x(), cell.circle.position.y()};
+    std::vector<std::pair<size_t, float>> ret_matches;
+    const size_t num_matches =
+        kdtree.radiusSearch(&query_pt[0], min_cluster_distance, ret_matches,
+                            nanoflann::SearchParams());
+
+    if (num_matches + 1 < static_cast<size_t>(min_cluster_size)) {
+      labels[i] = NOISE;
+      continue;
+    }
+
+    cluster_counter++;
+
+    std::vector<DetectCircle<float>> cluster_detections;
+    cluster_detections.push_back(cell);
+
+    labels[i] = cluster_counter;
+
+    for (std::size_t n = 0; n < ret_matches.size(); ++n) {
+      const auto& match = ret_matches[n];
+
+      if (labels[match.first] == NOISE) {
+        labels[match.first] = cluster_counter;
+      } else if (labels[match.first] != UNDEFINED) {
+        continue;
+      } else {
+        labels[match.first] = cluster_counter;
+      }
+
+      cluster_detections.push_back(data_set.cells[match.first]);
+
+      {
+        float sub_query_pt[2] = {kdtree.dataset.kdtree_get_pt(match.first, 0),
+                                 kdtree.dataset.kdtree_get_pt(match.first, 1)};
+        std::vector<std::pair<size_t, float>> sub_ret_matches;
+        kdtree.radiusSearch(&sub_query_pt[0], min_cluster_distance,
+                            sub_ret_matches, nanoflann::SearchParams());
+        for (const auto& match : sub_ret_matches) ret_matches.push_back(match);
+      }
+    }
+
+    Circle<float> circle;
+    circle.mse = 0;
+    circle.radius = cluster_detections[0].circle.radius;
+    circle.position = Eigen::Matrix<float, 2, 1>::Zero();
+    std::set<size_t> included_points;
+    for (const auto c : cluster_detections) {
+      for (const size_t idx : c.point_indexes) {
+        included_points.insert(idx);
+      }
+    }
+    if (cluster_detections.size() > 1) {
+      float weights_sum = 0.0;
+      for (const auto c : cluster_detections) {
+        const float weight = (1.f / std::max(0.001f, c.circle.mse));
+        circle.position += weight * c.circle.position;
+        weights_sum += weight;
+      }
+      circle.position /= weights_sum;
+    } else {
+      circle.position = cluster_detections[0].circle.position;
+    }
+    circle.count = 0;
+    for (const size_t idx : included_points) {
+      const auto scan_point = point_cloud[idx].position.head<2>();
+      const float distance_to_circumference =
+          std::abs(circle.radius - (scan_point - circle.position).norm());
+      if (distance_to_circumference < excl_radius) {
+        circle.count++;
+        circle.mse += distance_to_circumference;
+        circle.points.push_back(scan_point);
+      }
+    }
+    if (circle.count > 0)
+      circle.mse /= static_cast<float>(included_points.size());
+    else
+      circle.mse = std::numeric_limits<float>::max();
+    CHECK(std::isfinite(circle.mse));
+    CHECK(circle.position.allFinite());
+
+//    LOG(INFO) << "Circle cluster: " << cluster_detections.size()
+//              << " points: " << included_points.size()
+//              << " mse: " << circle.mse;
+
+    clusters.push_back(circle);
+  }
+
+  return clusters;
+}
 
 }  // namespace
 
@@ -168,8 +283,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
   std::sort(sorted_range_data.begin(), sorted_range_data.end(),
             PointCloudSorter());
 
-  std::vector<Circle<float>> circles;
-  std::vector<std::vector<size_t>> circles_scan_points;
+  std::vector<DetectCircle<float>> detections;
 
   const float excl_radius = radius * 1.6f;
 
@@ -202,12 +316,11 @@ std::vector<Circle<float>> DetectReflectivePoles(
     // max angle +/- from centreline to pole
     const float max_angle = std::asin(excl_radius / (excl_radius + dir.norm()));
 
-    Circle<float> circle;
-    circle.radius = radius;
-    circle.position = position;
-    std::vector<size_t> circle_scan_points;
+    DetectCircle<float> detection;
+    detection.circle.radius = radius;
+    detection.circle.position = position;
 
-    circle_scan_points.push_back(i);
+    detection.point_indexes.push_back(i);
 
     // walk left
     auto fw_it = sorted_range_data.begin() + static_cast<int>(i);
@@ -223,7 +336,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
         mse += distance_to_circumference;
         count++;
         if (fw_it->intensity > 0) intense_count++;
-        circle_scan_points.push_back(static_cast<size_t>(
+        detection.point_indexes.push_back(static_cast<size_t>(
             std::distance(sorted_range_data.begin(), fw_it)));
       }
 
@@ -248,7 +361,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
         mse += distance_to_circumference;
         count++;
         if (bw_it->intensity > 0) intense_count++;
-        circle_scan_points.push_back(static_cast<size_t>(
+        detection.point_indexes.push_back(static_cast<size_t>(
             std::distance(sorted_range_data.begin(), bw_it.base()) - 1));
       }
 
@@ -261,87 +374,26 @@ std::vector<Circle<float>> DetectReflectivePoles(
 
     if (count >= required_inlier_points &&
         intense_count >= required_intense_points && mse < max_error) {
-      circle.mse = mse;
-      circle.count = count;
+      detection.circle.mse = mse;
+      detection.circle.count = count;
 
-      CHECK(std::isfinite(circle.mse));
-      CHECK(circle.position.allFinite());
+      CHECK_EQ(count, detection.point_indexes.size());
+      CHECK(std::isfinite(detection.circle.mse));
+      CHECK(detection.circle.position.allFinite());
 
-      circles.push_back(circle);
-      circles_scan_points.push_back(circle_scan_points);
+      detections.push_back(detection);
     }
   }
 
-  if (circles.empty()) return {};
+  if (detections.empty()) return {};
 
-  std::vector<Circle<float>> clusters;
-
-  auto ComputeCluster = [circles, circles_scan_points, radius,
-                         sorted_range_data, excl_radius](const size_t start_i,
-                                                         const size_t end_i) {
-    Circle<float> circle;
-    circle.mse = 0;
-    circle.radius = radius;
-    circle.position = Eigen::Matrix<float, 2, 1>::Zero();
-    std::set<size_t> included_points;
-    for (size_t j = start_i; j <= end_i; ++j) {
-      for (const size_t idx : circles_scan_points[j]) {
-        included_points.insert(idx);
-      }
-    }
-    if (start_i != end_i) {
-      float weights_sum = 0.0;
-      for (size_t j = start_i; j <= end_i; ++j) {
-        const float weight = (1.f / std::max(0.001f, circles[j].mse));
-        circle.position += weight * circles[j].position;
-        weights_sum += weight;
-      }
-      circle.position /= weights_sum;
-    } else {
-      circle.position = circles[start_i].position;
-    }
-    circle.count = 0;
-    for (const size_t idx : included_points) {
-      const auto scan_point = sorted_range_data[idx].position.head<2>();
-      circle.points.push_back(scan_point);
-      const float distance_to_circumference =
-          std::abs(radius - (scan_point - circle.position).norm());
-      if (distance_to_circumference < excl_radius) {
-        circle.count++;
-        circle.mse += distance_to_circumference;
-      }
-    }
-    if (circle.count > 0)
-      circle.mse /= static_cast<float>(included_points.size());
-    else
-      circle.mse = std::numeric_limits<float>::max();
-    CHECK(std::isfinite(circle.mse));
-    CHECK(circle.position.allFinite());
-    return circle;
-  };
-
-  // cluster groups of circles
-  size_t start_i = 0;
-  size_t end_i = 0;
-  for (size_t i = 1; i < circles.size(); ++i) {
-    // distance to start
-    const float d = (circles[start_i].position - circles[i].position).norm();
-    if (d < radius * 4.f) {
-      end_i = i;
-    } else {
-      const auto c = ComputeCluster(start_i, end_i);
-      clusters.push_back(c);
-      start_i = i;
-      end_i = i;
-    }
-  }
-  const auto c = ComputeCluster(start_i, end_i);
-  clusters.push_back(c);
-
-  std::sort(clusters.begin(), clusters.end(), CircleSorter<float>());
+  const std::vector<Circle<float>> clusters =
+      DBScan(detections, sorted_range_data, excl_radius, radius * 3.f, 1);
 
   return clusters;
 }
+
+/*
 
 std::map<std::pair<int, int>, size_t> HoughCircles(const ProbabilityGrid& grid,
                                                    const double radius,
@@ -379,93 +431,6 @@ std::map<std::pair<int, int>, size_t> HoughCircles(const ProbabilityGrid& grid,
     }
   }
   return accumulator;
-}
-
-std::vector<DataSet::Cell> DBScan(const std::vector<DataSet::Cell>& cells,
-                                  const double min_cluster_distance,
-                                  const size_t min_cluster_size) {
-  int cluster_counter = 0;
-  static constexpr int UNDEFINED = -1;
-  static constexpr int NOISE = -2;
-
-  DataSet data_set;
-  data_set.cells = cells;
-
-  KDTree kdtree(2, data_set, nanoflann::KDTreeSingleIndexAdaptorParams(10));
-  kdtree.buildIndex();
-
-  std::vector<DataSet::Cell> clusters;
-
-  std::vector<int> labels(data_set.cells.size(), UNDEFINED);
-
-  for (std::size_t i = 0; i < data_set.cells.size(); ++i) {
-    const auto& cell = data_set.cells[i];
-
-    if (labels[i] != UNDEFINED) {
-      continue;
-    }
-
-    int query_pt[2] = {cell.x, cell.y};
-    std::vector<std::pair<size_t, double>> ret_matches;
-    const size_t num_matches =
-        kdtree.radiusSearch(&query_pt[0], min_cluster_distance, ret_matches,
-                            nanoflann::SearchParams());
-
-    if (num_matches + 1 < static_cast<size_t>(min_cluster_size)) {
-      LOG(INFO) << i << " is noise";
-      labels[i] = NOISE;
-      continue;
-    }
-
-    cluster_counter++;
-
-    std::vector<DataSet::Cell> cluster;
-    cluster.push_back(cell);
-
-    labels[i] = cluster_counter;
-
-    for (std::size_t n = 0; n < ret_matches.size(); ++n) {
-      const auto& match = ret_matches[n];
-
-      if (labels[match.first] == NOISE) {
-        labels[match.first] = cluster_counter;
-      } else if (labels[match.first] != UNDEFINED) {
-        continue;
-      } else {
-        labels[match.first] = cluster_counter;
-      }
-
-      cluster.push_back(data_set.cells[match.first]);
-
-      {
-        int sub_query_pt[2] = {kdtree.dataset.kdtree_get_pt(match.first, 0),
-                               kdtree.dataset.kdtree_get_pt(match.first, 1)};
-        std::vector<std::pair<size_t, double>> sub_ret_matches;
-        const size_t sub_num_matches =
-            kdtree.radiusSearch(&sub_query_pt[0], min_cluster_distance,
-                                sub_ret_matches, nanoflann::SearchParams());
-
-        if (sub_num_matches + 1 > min_cluster_size) {
-          for (const auto& match : sub_ret_matches)
-            ret_matches.push_back(match);
-        }
-      }
-    }
-
-    // determine the best scoring pose
-    float max_score = 0;
-    size_t max_p = 0;
-    for (std::size_t p = 0; p < cluster.size(); ++p) {
-      if (cluster[p].cost > max_score) {
-        max_score = cluster[p].cost;
-        max_p = p;
-      }
-    }
-
-    clusters.push_back(cluster[max_p]);
-  }
-
-  return clusters;
 }
 
 std::vector<Eigen::Array2i> FilterByComponentSize(
@@ -656,7 +621,6 @@ std::vector<Eigen::Array2i> DetectCircles(const ProbabilityGrid& grid,
     }
   }
 
-  /*
   {
       auto surface =
   cairo_image_surface_create(cairo_format_t::CAIRO_FORMAT_ARGB32, k_size,
@@ -684,7 +648,6 @@ std::vector<Eigen::Array2i> DetectCircles(const ProbabilityGrid& grid,
 
       delete surface;
   }
-  */
 
   const float cost_threshold = 0.25 * M_PI * 2.0 * radius_in_cells;
   const auto cells = ComputeKernel(kernel, grid, cost_threshold);
@@ -754,6 +717,7 @@ std::vector<Eigen::Array2i> DetectCircles(const ProbabilityGrid& grid,
 
   return components;
 }
+*/
 
 /*
 Circle FitCircleKasa(const Circle& circle)

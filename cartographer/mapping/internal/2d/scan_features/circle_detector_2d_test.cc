@@ -1250,6 +1250,7 @@ TEST(CirclDetector, real_data) {
   cairo_surface_write_to_png(surface.get(), "test.png");
 }
 
+/*
 TEST(CirclDetector, test_hough) {
   const float resolution = 0.01;
   const float side_length = 20.0;
@@ -1330,6 +1331,7 @@ TEST(CirclDetector, test_hough) {
 
   cairo_surface_write_to_png(surface.get(), "test2.png");
 }
+*/
 
 }  // namespace
 }  // namespace mapping
