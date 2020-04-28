@@ -40,7 +40,6 @@ namespace mapping {
 
 // Wires up the local SLAM stack (i.e. pose extrapolator, scan matching, etc.)
 // without loop closure.
-// TODO(gaschler): Add test for this class similar to the 3D test.
 class LocalTrajectoryBuilder2D {
  public:
   struct InsertionResult {
@@ -50,6 +49,9 @@ class LocalTrajectoryBuilder2D {
   struct MatchingResult {
     common::Time time;
     transform::Rigid3d local_pose;
+
+    transform::Rigid3d odom;
+
     // 'nullptr' if dropped by the motion filter.
     std::unique_ptr<const InsertionResult> insertion_result;
   };

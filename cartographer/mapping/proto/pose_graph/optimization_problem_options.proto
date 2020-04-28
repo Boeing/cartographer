@@ -28,12 +28,6 @@ message OptimizationProblemOptions {
   // Scaling parameter for rotation between consecutive nodes based on the local SLAM pose.
   double local_slam_pose_rotation_weight = 3;
 
-  // Scaling parameter for translation between consecutive nodes based on the odometry.
-  double odometry_translation_weight = 4;
-
-  // Scaling parameter for rotation between consecutive nodes based on the odometry.
-  double odometry_rotation_weight = 5;
-
   // Scaling parameter for the FixedFramePose translation.
   double fixed_frame_pose_translation_weight = 6;
 

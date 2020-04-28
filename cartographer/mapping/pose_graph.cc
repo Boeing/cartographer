@@ -88,8 +88,7 @@ void PopulateOverlappingSubmapsTrimmerOptions2D(
 proto::PoseGraphOptions CreatePoseGraphOptions(
     common::LuaParameterDictionary* const parameter_dictionary) {
   proto::PoseGraphOptions options;
-  options.set_optimize_every_n_nodes(
-      parameter_dictionary->GetInt("optimize_every_n_nodes"));
+
   *options.mutable_constraint_builder_options() =
       constraints::CreateConstraintBuilderOptions(
           parameter_dictionary->GetDictionary("constraint_builder").get());
@@ -97,29 +96,30 @@ proto::PoseGraphOptions CreatePoseGraphOptions(
       parameter_dictionary->GetDouble("matcher_translation_weight"));
   options.set_matcher_rotation_weight(
       parameter_dictionary->GetDouble("matcher_rotation_weight"));
+
   *options.mutable_optimization_problem_options() =
       optimization::CreateOptimizationProblemOptions(
           parameter_dictionary->GetDictionary("optimization_problem").get());
+
   options.set_max_num_final_iterations(
       parameter_dictionary->GetNonNegativeInt("max_num_final_iterations"));
   CHECK_GT(options.max_num_final_iterations(), 0);
-  options.set_log_residual_histograms(
-      parameter_dictionary->GetBool("log_residual_histograms"));
-  options.set_global_constraint_search_after_n_seconds(
-      parameter_dictionary->GetDouble(
-          "global_constraint_search_after_n_seconds"));
+
   PopulateOverlappingSubmapsTrimmerOptions2D(&options, parameter_dictionary);
+
   options.set_min_globally_searched_constraints_for_trajectory(
       parameter_dictionary->GetInt(
           "min_globally_searched_constraints_for_trajectory"));
-  options.set_min_global_constraints_for_submap(
-      parameter_dictionary->GetInt("min_global_constraints_for_submap"));
-  options.set_min_local_constraints_for_submap(
-      parameter_dictionary->GetInt("min_local_constraints_for_submap"));
+
+  options.set_local_constraint_every_n_nodes(
+      parameter_dictionary->GetInt("local_constraint_every_n_nodes"));
+
+  options.set_global_constraint_every_n_nodes(
+      parameter_dictionary->GetInt("global_constraint_every_n_nodes"));
+
   options.set_max_constraint_match_distance(
       parameter_dictionary->GetDouble("max_constraint_match_distance"));
-  options.set_max_work_queue_size(
-      parameter_dictionary->GetInt("max_work_queue_size"));
+
   return options;
 }
 

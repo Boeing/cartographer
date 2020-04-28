@@ -89,7 +89,6 @@ class PoseGraph2DTest : public ::testing::Test {
     {
       auto parameter_dictionary = common::MakeDictionary(R"text(
           return {
-             optimize_every_n_nodes = 100,
              constraint_builder = {
                  min_local_search_score = 0.40,
                  min_global_search_score = 0.45,
@@ -97,7 +96,6 @@ class PoseGraph2DTest : public ::testing::Test {
                  -- used when adding INTER submap constraints
                  constraint_translation_weight = 2,
                  constraint_rotation_weight = 2,
-                 log_matches = false,
                  ceres_scan_matcher = {
                      occupied_space_weight = 1,
                      translation_weight = 1,
@@ -181,35 +179,20 @@ class PoseGraph2DTest : public ::testing::Test {
                  },
              },
              max_num_final_iterations = 200,
-             log_residual_histograms = true,
-             global_constraint_search_after_n_seconds = 10000.,
-
-             --  overlapping_submaps_trimmer_2d = {
-             --    fresh_submaps_count = 1,
-             --    min_covered_area = 2,
-             --    min_added_submaps_count = 5,
-             --  },
-
-             -- global search is EXPENSIVE (~1-2seconds)
 
              -- keep searching globally until this many found in total
-             min_globally_searched_constraints_for_trajectory = 4,
+             min_globally_searched_constraints_for_trajectory = 1,
 
              -- keep searching locally until this many inside submap
-             min_local_constraints_for_submap = 3,
+             local_constraint_every_n_nodes = 8,
 
              -- keep searching globally until this many inside submap
-             min_global_constraints_for_submap = 1,
+             global_constraint_every_n_nodes = 8,
 
              max_constraint_match_distance = 9.0,
-             max_work_queue_size = 10,
           })text");
       auto options = CreatePoseGraphOptions(parameter_dictionary.get());
-      pose_graph_ = absl::make_unique<PoseGraph2D>(
-          options,
-          absl::make_unique<optimization::OptimizationProblem2D>(
-              options.optimization_problem_options()),
-          &thread_pool_);
+      pose_graph_ = absl::make_unique<PoseGraph2D>(options);
     }
 
     current_pose_ = transform::Rigid2d::Identity();
@@ -345,8 +328,8 @@ TEST_F(PoseGraph2DTest, OverlappingNodes) {
   LOG(INFO) << "Number of submaps: " << active_submaps_->submaps().size();
 
   auto submap = active_submaps_->submaps().front();
-  const ProbabilityGrid* pg =
-      dynamic_cast<const ProbabilityGrid*>(submap->grid());
+  //  const ProbabilityGrid* pg =
+  //      dynamic_cast<const ProbabilityGrid*>(submap->grid());
 
   //  auto surface = pg->DrawSurface();
   //  cairo_surface_write_to_png(surface.get(), "test.png");

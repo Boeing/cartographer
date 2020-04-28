@@ -19,11 +19,8 @@ import "cartographer/mapping/proto/pose_graph_options.proto";
 package cartographer.mapping.proto;
 
 message MapBuilderOptions {
-  // Number of threads to use for background computations.
-  int32 num_background_threads = 1;
-
-  PoseGraphOptions pose_graph_options = 2;
+  PoseGraphOptions pose_graph_options = 1;
 
   // Sort sensor input independently for each trajectory.
-  bool collate_by_trajectory = 3;
+  bool collate_by_trajectory = 2;
 }

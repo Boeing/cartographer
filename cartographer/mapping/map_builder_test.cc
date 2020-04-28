@@ -43,9 +43,7 @@ class MapBuilderTestBase : public T {
     // Global SLAM optimization is not executed.
     const std::string kMapBuilderLua = R"text(
       return {
-       num_background_threads = 1,
            pose_graph = {
-               optimize_every_n_nodes = 1,
                constraint_builder = {
                    min_local_search_score = 0.40,
                    min_global_search_score = 0.45,
@@ -53,7 +51,6 @@ class MapBuilderTestBase : public T {
                    -- used when adding INTER submap constraints
                    constraint_translation_weight = 2,
                    constraint_rotation_weight = 2,
-                   log_matches = false,
                    ceres_scan_matcher = {
                        occupied_space_weight = 1,
                        translation_weight = 1,
@@ -137,8 +134,6 @@ class MapBuilderTestBase : public T {
                    },
                },
                max_num_final_iterations = 200,
-               log_residual_histograms = true,
-               global_constraint_search_after_n_seconds = 10000.,
 
                --  overlapping_submaps_trimmer_2d = {
                --    fresh_submaps_count = 1,
@@ -149,16 +144,13 @@ class MapBuilderTestBase : public T {
                -- global search is EXPENSIVE (~1-2seconds)
 
                -- keep searching globally until this many found in total
-               min_globally_searched_constraints_for_trajectory = 4,
+               min_globally_searched_constraints_for_trajectory = 1,
 
                -- keep searching locally until this many inside submap
-               min_local_constraints_for_submap = 3,
+               local_constraint_every_n_nodes = 8,
 
                -- keep searching globally until this many inside submap
-               min_global_constraints_for_submap = 1,
-
-               max_constraint_match_distance = 9.0,
-               max_work_queue_size = 10,
+               global_constraint_every_n_nodes = 8,
            },
            collate_by_trajectory = false,
        })text";
@@ -278,8 +270,6 @@ class MapBuilderTestBase : public T {
   }
 
   void SetOptionsEnableGlobalOptimization() {
-    map_builder_options_.mutable_pose_graph_options()
-        ->set_optimize_every_n_nodes(3);
     trajectory_builder_options_.mutable_trajectory_builder_2d_options()
         ->mutable_motion_filter_options()
         ->set_max_distance_meters(0);
@@ -288,6 +278,7 @@ class MapBuilderTestBase : public T {
   MapBuilderInterface::LocalSlamResultCallback GetLocalSlamResultCallback() {
     return [=](const int trajectory_id, const ::cartographer::common::Time time,
                const ::cartographer::transform::Rigid3d local_pose,
+               const ::cartographer::transform::Rigid3d odom,
                const std::unique_ptr<
                    const cartographer::mapping::TrajectoryBuilderInterface::
                        InsertionResult>) {

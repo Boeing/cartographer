@@ -19,7 +19,6 @@
 #include <memory>
 
 #include "absl/memory/memory.h"
-#include "cartographer/mapping/local_slam_result_data.h"
 #include "glog/logging.h"
 
 namespace cartographer {

@@ -32,12 +32,17 @@ class Trimmable {
   virtual int num_submaps(int trajectory_id) const = 0;
 
   virtual std::vector<SubmapId> GetSubmapIds(int trajectory_id) const = 0;
+
   // Returns finished submaps with optimized poses only.
   virtual MapById<SubmapId, PoseGraphInterface::SubmapData>
   GetOptimizedSubmapData() const = 0;
+
   virtual const MapById<NodeId, TrajectoryNode>& GetTrajectoryNodes() const = 0;
+
   virtual const std::vector<PoseGraphInterface::Constraint>& GetConstraints()
       const = 0;
+
+  virtual const MapById<SubmapId, std::set<NodeId>> GetSubmapNodes() const = 0;
 
   // Trim 'submap_id' and corresponding intra-submap nodes. They
   // will no longer take part in scan matching, loop closure, visualization.

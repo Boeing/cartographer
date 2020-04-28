@@ -58,14 +58,6 @@ class PoseGraph : public PoseGraphInterface {
   PoseGraph(const PoseGraph&) = delete;
   PoseGraph& operator=(const PoseGraph&) = delete;
 
-  // Inserts an IMU measurement.
-  virtual void AddImuData(int trajectory_id,
-                          const sensor::ImuData& imu_data) = 0;
-
-  // Inserts an odometry measurement.
-  virtual void AddOdometryData(int trajectory_id,
-                               const sensor::OdometryData& odometry_data) = 0;
-
   // Inserts a fixed frame pose measurement.
   virtual void AddFixedFramePoseData(
       int trajectory_id,
@@ -118,12 +110,6 @@ class PoseGraph : public PoseGraphInterface {
   virtual SubmapData GetSubmapData(const SubmapId& submap_id) const = 0;
 
   proto::PoseGraph ToProto(bool include_unfinished_submaps) const override;
-
-  // Returns the IMU data.
-  virtual sensor::MapByTime<sensor::ImuData> GetImuData() const = 0;
-
-  // Returns the odometry data.
-  virtual sensor::MapByTime<sensor::OdometryData> GetOdometryData() const = 0;
 
   // Returns the fixed frame pose data.
   virtual sensor::MapByTime<sensor::FixedFramePoseData> GetFixedFramePoseData()

@@ -52,14 +52,6 @@ void MaybeAddPureLocalizationTrimmer(
     const int trajectory_id,
     const proto::TrajectoryBuilderOptions& trajectory_options,
     PoseGraph* pose_graph) {
-  if (trajectory_options.pure_localization()) {
-    LOG(WARNING)
-        << "'TrajectoryBuilderOptions::pure_localization' field is deprecated. "
-           "Use 'TrajectoryBuilderOptions::pure_localization_trimmer' instead.";
-    pose_graph->AddTrimmer(absl::make_unique<PureLocalizationTrimmer>(
-        trajectory_id, 3 /* max_submaps_to_keep */));
-    return;
-  }
   if (trajectory_options.has_pure_localization_trimmer()) {
     pose_graph->AddTrimmer(absl::make_unique<PureLocalizationTrimmer>(
         trajectory_id,
@@ -72,9 +64,6 @@ void MaybeAddPureLocalizationTrimmer(
 proto::MapBuilderOptions CreateMapBuilderOptions(
     common::LuaParameterDictionary* const parameter_dictionary) {
   proto::MapBuilderOptions options;
-  options.set_num_background_threads(
-      parameter_dictionary->GetNonNegativeInt("num_background_threads"));
-  CHECK_GT(options.num_background_threads(), 0);
   options.set_collate_by_trajectory(
       parameter_dictionary->GetBool("collate_by_trajectory"));
   *options.mutable_pose_graph_options() = CreatePoseGraphOptions(
@@ -83,12 +72,8 @@ proto::MapBuilderOptions CreateMapBuilderOptions(
 }
 
 MapBuilder::MapBuilder(const proto::MapBuilderOptions& options)
-    : options_(options), thread_pool_(options.num_background_threads()) {
-  pose_graph_ = absl::make_unique<PoseGraph2D>(
-      options_.pose_graph_options(),
-      absl::make_unique<optimization::OptimizationProblem2D>(
-          options_.pose_graph_options().optimization_problem_options()),
-      &thread_pool_);
+    : options_(options) {
+  pose_graph_ = absl::make_unique<PoseGraph2D>(options_.pose_graph_options());
   if (options.collate_by_trajectory()) {
     sensor_collator_ = absl::make_unique<sensor::TrajectoryCollator>();
   } else {
@@ -103,19 +88,15 @@ int MapBuilder::AddTrajectoryBuilder(
   const int trajectory_id = trajectory_builders_.size();
 
   std::unique_ptr<LocalTrajectoryBuilder2D> local_trajectory_builder;
-  if (trajectory_options.has_trajectory_builder_2d_options()) {
-    local_trajectory_builder = absl::make_unique<LocalTrajectoryBuilder2D>(
-        trajectory_options.trajectory_builder_2d_options(),
-        SelectRangeSensorIds(expected_sensor_ids));
-  }
+  local_trajectory_builder = absl::make_unique<LocalTrajectoryBuilder2D>(
+      trajectory_options.trajectory_builder_2d_options(),
+      SelectRangeSensorIds(expected_sensor_ids));
   DCHECK(dynamic_cast<PoseGraph2D*>(pose_graph_.get()));
-  trajectory_builders_.push_back(absl::make_unique<CollatedTrajectoryBuilder>(
-      trajectory_options, sensor_collator_.get(), trajectory_id,
-      expected_sensor_ids,
-      CreateGlobalTrajectoryBuilder2D(
-          std::move(local_trajectory_builder), trajectory_id,
-          static_cast<PoseGraph2D*>(pose_graph_.get()),
-          local_slam_result_callback)));
+
+  trajectory_builders_.push_back(CreateGlobalTrajectoryBuilder2D(
+      std::move(local_trajectory_builder), trajectory_id,
+      static_cast<PoseGraph2D*>(pose_graph_.get()),
+      local_slam_result_callback));
 
   MaybeAddPureLocalizationTrimmer(trajectory_id, trajectory_options,
                                   pose_graph_.get());
@@ -288,20 +269,6 @@ std::map<int, int> MapBuilder::LoadState(
         proto.mutable_trajectory_data()->set_trajectory_id(
             trajectory_remapping.at(proto.trajectory_data().trajectory_id()));
         pose_graph_->SetTrajectoryDataFromProto(proto.trajectory_data());
-        break;
-      }
-      case SerializedData::kImuData: {
-        if (load_frozen_state) break;
-        pose_graph_->AddImuData(
-            trajectory_remapping.at(proto.imu_data().trajectory_id()),
-            sensor::FromProto(proto.imu_data().imu_data()));
-        break;
-      }
-      case SerializedData::kOdometryData: {
-        if (load_frozen_state) break;
-        pose_graph_->AddOdometryData(
-            trajectory_remapping.at(proto.odometry_data().trajectory_id()),
-            sensor::FromProto(proto.odometry_data().odometry_data()));
         break;
       }
       case SerializedData::kFixedFramePoseData: {

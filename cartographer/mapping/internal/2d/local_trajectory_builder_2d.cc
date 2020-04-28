@@ -278,8 +278,10 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   last_wall_time_ = wall_time;
   last_thread_cpu_time_seconds_ = thread_cpu_time_seconds;
 
+  const auto odom = extrapolator_->odom(time);
+
   return absl::make_unique<MatchingResult>(
-      MatchingResult{time, pose_estimate, std::move(insertion_result)});
+      MatchingResult{time, pose_estimate, odom, std::move(insertion_result)});
 }
 
 void LocalTrajectoryBuilder2D::AddImuData(const sensor::ImuData&) {
