@@ -28,6 +28,11 @@ class PoseExtrapolator {
     transform::Rigid3d motion;
   };
 
+  // get odom at the queried time
+  transform::Rigid3d odom(common::Time time);
+
+  // estimate the pose of the robot with respect to the last reference pose
+  // using the odom difference
   Extrapolation ExtrapolatePose(common::Time time);
 
  private:

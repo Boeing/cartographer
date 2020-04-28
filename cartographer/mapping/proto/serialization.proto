@@ -60,12 +60,6 @@ message TrajectoryData {
   transform.proto.Rigid3d fixed_frame_origin_in_map = 4;
 }
 
-message LocalSlamResultData {
-  int64 timestamp = 1;
-  TrajectoryNodeData node_data = 2;
-  repeated Submap submaps = 3;
-}
-
 // Header of the serialization format. At the moment it only contains the
 // version of the format.
 message SerializationHeader {

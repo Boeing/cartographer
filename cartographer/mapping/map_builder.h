@@ -87,7 +87,6 @@ class MapBuilder : public MapBuilderInterface {
 
  private:
   const proto::MapBuilderOptions options_;
-  common::ThreadPool thread_pool_;
 
   std::unique_ptr<PoseGraph> pose_graph_;
 

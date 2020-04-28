@@ -127,7 +127,6 @@ class PoseGraphInterface {
                                const transform::Rigid3d& global_pose,
                                const bool frozen = false) = 0;
 
-  // Deletes a trajectory asynchronously.
   virtual void DeleteTrajectory(int trajectory_id) = 0;
 
   // Checks if the given trajectory is finished.

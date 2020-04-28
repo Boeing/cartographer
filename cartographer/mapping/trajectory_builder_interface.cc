@@ -15,9 +15,7 @@
  */
 
 #include "cartographer/mapping/trajectory_builder_interface.h"
-
 #include "cartographer/mapping/internal/2d/local_trajectory_builder_options_2d.h"
-#include "cartographer/mapping/local_slam_result_data.h"
 
 namespace cartographer {
 namespace mapping {

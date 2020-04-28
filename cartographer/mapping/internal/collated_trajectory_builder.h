@@ -25,7 +25,6 @@
 
 #include "cartographer/common/port.h"
 #include "cartographer/common/rate_timer.h"
-#include "cartographer/mapping/local_slam_result_data.h"
 #include "cartographer/mapping/submaps.h"
 #include "cartographer/mapping/trajectory_builder_interface.h"
 #include "cartographer/sensor/collator_interface.h"
@@ -85,11 +84,6 @@ class CollatedTrajectoryBuilder : public TrajectoryBuilderInterface {
       return;
     }
     wrapped_trajectory_builder_->AddSensorData(sensor_id, landmark_data);
-  }
-
-  void AddLocalSlamResultData(std::unique_ptr<mapping::LocalSlamResultData>
-                                  local_slam_result_data) override {
-    AddData(std::move(local_slam_result_data));
   }
 
  private:

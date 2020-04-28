@@ -39,8 +39,6 @@ proto::ConstraintBuilderOptions CreateConstraintBuilderOptions(
   options.set_constraint_rotation_weight(
       parameter_dictionary->GetDouble("constraint_rotation_weight"));
 
-  options.set_log_matches(parameter_dictionary->GetBool("log_matches"));
-
   *options.mutable_ceres_scan_matcher_options() =
       scan_matching::CreateCeresScanMatcherOptions2D(
           parameter_dictionary->GetDictionary("ceres_scan_matcher").get());

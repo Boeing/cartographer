@@ -20,7 +20,6 @@
 
 #include "absl/memory/memory.h"
 #include "cartographer/common/time.h"
-#include "cartographer/mapping/local_slam_result_data.h"
 #include "cartographer/metrics/family_factory.h"
 #include "glog/logging.h"
 
@@ -76,9 +75,9 @@ class GlobalTrajectoryBuilder : public mapping::TrajectoryBuilderInterface {
               matching_result->insertion_result->insertion_submaps.end())});
     }
     if (local_slam_result_callback_) {
-      local_slam_result_callback_(trajectory_id_, matching_result->time,
-                                  matching_result->local_pose,
-                                  std::move(insertion_result));
+      local_slam_result_callback_(
+          trajectory_id_, matching_result->time, matching_result->local_pose,
+          matching_result->odom, std::move(insertion_result));
     }
   }
 
@@ -87,7 +86,6 @@ class GlobalTrajectoryBuilder : public mapping::TrajectoryBuilderInterface {
     if (local_trajectory_builder_) {
       local_trajectory_builder_->AddImuData(imu_data);
     }
-    pose_graph_->AddImuData(trajectory_id_, imu_data);
   }
 
   void AddSensorData(const std::string& sensor_id,
@@ -96,7 +94,6 @@ class GlobalTrajectoryBuilder : public mapping::TrajectoryBuilderInterface {
     if (local_trajectory_builder_) {
       local_trajectory_builder_->AddOdometryData(odometry_data);
     }
-    pose_graph_->AddOdometryData(trajectory_id_, odometry_data);
   }
 
   void AddSensorData(
@@ -112,13 +109,6 @@ class GlobalTrajectoryBuilder : public mapping::TrajectoryBuilderInterface {
   void AddSensorData(const std::string& sensor_id,
                      const sensor::LandmarkData& landmark_data) override {
     pose_graph_->AddLandmarkData(trajectory_id_, landmark_data);
-  }
-
-  void AddLocalSlamResultData(std::unique_ptr<mapping::LocalSlamResultData>
-                                  local_slam_result_data) override {
-    CHECK(!local_trajectory_builder_) << "Can't add LocalSlamResultData with "
-                                         "local_trajectory_builder_ present.";
-    local_slam_result_data->AddToPoseGraph(trajectory_id_, pose_graph_);
   }
 
  private:

@@ -21,9 +21,6 @@ set(CARTOGRAPHER_MINOR_VERSION 0)
 set(CARTOGRAPHER_PATCH_VERSION 0)
 set(CARTOGRAPHER_VERSION ${CARTOGRAPHER_MAJOR_VERSION}.${CARTOGRAPHER_MINOR_VERSION}.${CARTOGRAPHER_PATCH_VERSION})
 set(CARTOGRAPHER_SOVERSION ${CARTOGRAPHER_MAJOR_VERSION}.${CARTOGRAPHER_MINOR_VERSION})
-option(BUILD_GRPC "build Cartographer gRPC support" false)
-set(CARTOGRAPHER_HAS_GRPC ${BUILD_GRPC})
-option(BUILD_PROMETHEUS "build Prometheus monitoring support" false)
 option(BUILD_TESTS "build tests" false)
 option(BUILD_BINARIES "build binaries" false)
 
@@ -50,14 +47,6 @@ if(WIN32)
   find_package(Protobuf 3.0.0 CONFIG)
 else()
   find_package(Protobuf 3.0.0 REQUIRED)
-endif()
-
-if (${BUILD_GRPC})
-  find_package(async_grpc REQUIRED)
-endif()
-
-if(${BUILD_PROMETHEUS})
-  find_package( ZLIB REQUIRED )
 endif()
 
 include(FindPkgConfig)
@@ -95,35 +84,11 @@ list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_EXECUTABLES})
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TESTS})
 list(REMOVE_ITEM ALL_LIBRARY_HDRS ${TEST_LIBRARY_HDRS})
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${TEST_LIBRARY_SRCS})
-file(GLOB_RECURSE ALL_GRPC_FILES "cartographer/cloud/*")
-file(GLOB_RECURSE ALL_PROMETHEUS_FILES "cartographer/cloud/metrics/prometheus/*")
-list(REMOVE_ITEM ALL_GRPC_FILES ${ALL_PROMETHEUS_FILES})
-if (NOT ${BUILD_GRPC})
-  list(REMOVE_ITEM ALL_LIBRARY_HDRS ${ALL_GRPC_FILES})
-  list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_GRPC_FILES})
-  list(REMOVE_ITEM TEST_LIBRARY_HDRS ${ALL_GRPC_FILES})
-  list(REMOVE_ITEM TEST_LIBRARY_SRCS ${ALL_GRPC_FILES})
-  list(REMOVE_ITEM ALL_TESTS ${ALL_GRPC_FILES})
-  list(REMOVE_ITEM ALL_EXECUTABLES ${ALL_GRPC_FILES})
-endif()
-if (NOT ${BUILD_PROMETHEUS})
-  list(REMOVE_ITEM ALL_LIBRARY_HDRS ${ALL_PROMETHEUS_FILES})
-  list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_PROMETHEUS_FILES})
-  list(REMOVE_ITEM TEST_LIBRARY_HDRS ${ALL_PROMETHEUS_FILES})
-  list(REMOVE_ITEM TEST_LIBRARY_SRCS ${ALL_PROMETHEUS_FILES})
-  list(REMOVE_ITEM ALL_TESTS ${ALL_PROMETHEUS_FILES})
-  list(REMOVE_ITEM ALL_EXECUTABLES ${ALL_PROMETHEUS_FILES})
-endif()
 set(INSTALL_SOURCE_HDRS ${ALL_LIBRARY_HDRS} ${TEST_LIBRARY_HDRS})
 file(GLOB_RECURSE INTERNAL_HDRS "cartographer/*/internal/*.h")
 #list(REMOVE_ITEM INSTALL_SOURCE_HDRS ${INTERNAL_HDRS})
 
 file(GLOB_RECURSE ALL_PROTOS "cartographer/*.proto")
-file(GLOB_RECURSE ALL_GRPC_SERVICES "cartographer/*_service.proto")
-list(REMOVE_ITEM ALL_PROTOS ALL_GRPC_SERVICES)
-if (NOT ${BUILD_GRPC})
-  list(REMOVE_ITEM ALL_PROTOS ${ALL_GRPC_FILES})
-endif()
 
 # TODO(cschuet): Move proto compilation to separate function.
 set(ALL_PROTO_SRCS)
@@ -151,34 +116,7 @@ set_source_files_properties(${ALL_PROTO_SRCS} ${ALL_PROTO_HDRS} PROPERTIES GENER
 list(APPEND ALL_LIBRARY_HDRS ${ALL_PROTO_HDRS})
 list(APPEND ALL_LIBRARY_SRCS ${ALL_PROTO_SRCS})
 
-if(${BUILD_GRPC})
-  set(ALL_GRPC_SERVICE_SRCS)
-  set(ALL_GRPC_SERVICE_HDRS)
-  foreach(ABS_FIL ${ALL_GRPC_SERVICES})
-    file(RELATIVE_PATH REL_FIL ${PROJECT_SOURCE_DIR} ${ABS_FIL})
-    get_filename_component(DIR ${REL_FIL} DIRECTORY)
-    get_filename_component(FIL_WE ${REL_FIL} NAME_WE)
-
-    list(APPEND ALL_GRPC_SERVICE_SRCS "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.cc")
-    list(APPEND ALL_GRPC_SERVICE_HDRS "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.h")
-
-    add_custom_command(
-      OUTPUT "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.cc"
-             "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.h"
-      COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
-      ARGS --cpp_out  ${PROJECT_BINARY_DIR}
-        -I ${PROJECT_SOURCE_DIR}
-        ${ABS_FIL}
-      DEPENDS ${ABS_FIL}
-      COMMENT "Running C++ protocol buffer compiler on ${ABS_FIL}"
-      VERBATIM
-    )
-  endforeach()
-  set_source_files_properties(${ALL_GRPC_SERVICE_SRCS} ${ALL_GRPC_SERVICE_HDRS} PROPERTIES GENERATED TRUE)
-  list(APPEND ALL_LIBRARY_HDRS ${ALL_GRPC_SERVICE_HDRS})
-  list(APPEND ALL_LIBRARY_SRCS ${ALL_GRPC_SERVICE_SRCS})
-endif()
-set(INSTALL_GENERATED_HDRS ${ALL_PROTO_HDRS} ${ALL_GRPC_SERVICE_HDRS})
+set(INSTALL_GENERATED_HDRS ${ALL_PROTO_HDRS})
 
 add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_HDRS} ${ALL_LIBRARY_SRCS})
 
@@ -206,20 +144,6 @@ if (${BUILD_BINARIES})
       SRCS
       cartographer/common/print_configuration_main.cc
     )
-endif()
-
-if(${BUILD_GRPC})
-  google_binary(cartographer_grpc_server
-    SRCS
-      cartographer/cloud/map_builder_server_main.cc
-  )
-  target_link_libraries(cartographer_grpc_server PUBLIC grpc++)
-  target_link_libraries(cartographer_grpc_server PUBLIC async_grpc)
-  if(${BUILD_PROMETHEUS})
-    target_link_libraries(cartographer_grpc_server PUBLIC ${ZLIB_LIBRARIES})
-    target_link_libraries(cartographer_grpc_server PUBLIC prometheus-cpp-core)
-    target_link_libraries(cartographer_grpc_server PUBLIC prometheus-cpp-pull)
-  endif()
 endif()
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
@@ -270,16 +194,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_LIBRARY} standalone_absl
 if (NOT WIN32)
   target_link_libraries(${PROJECT_NAME} PUBLIC pthread)
 endif()
-if(${BUILD_GRPC})
-  target_link_libraries(${PROJECT_NAME} PUBLIC grpc++)
-  target_link_libraries(${PROJECT_NAME} PUBLIC async_grpc)
-endif()
-if(${BUILD_PROMETHEUS})
-  target_link_libraries(${PROJECT_NAME} PUBLIC ${ZLIB_LIBRARIES})
-  target_link_libraries(${PROJECT_NAME} PUBLIC prometheus-cpp-core)
-  target_link_libraries(${PROJECT_NAME} PUBLIC prometheus-cpp-pull)
-  target_compile_definitions(${PROJECT_NAME} PUBLIC USE_PROMETHEUS=1)
-endif()
 
 set(TARGET_COMPILE_FLAGS "${TARGET_COMPILE_FLAGS} ${GOOG_CXX_FLAGS}")
 set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -308,15 +222,6 @@ if (${BUILD_TESTS})
       # Replace slashes as required for CMP0037.
       string(REPLACE "/" "." TEST_TARGET_NAME "${DIR}/${FIL_WE}")
       google_test("${TEST_TARGET_NAME}" ${ABS_FIL})
-      if(${BUILD_GRPC})
-        target_link_libraries("${TEST_TARGET_NAME}" PUBLIC grpc++)
-        target_link_libraries("${TEST_TARGET_NAME}" PUBLIC async_grpc)
-      endif()
-      if(${BUILD_PROMETHEUS})
-        target_link_libraries("${TEST_TARGET_NAME}" PUBLIC ${ZLIB_LIBRARIES})
-        target_link_libraries("${TEST_TARGET_NAME}" PUBLIC prometheus-cpp-core)
-        target_link_libraries("${TEST_TARGET_NAME}" PUBLIC prometheus-cpp-pull)
-      endif()
       target_link_libraries("${TEST_TARGET_NAME}" PUBLIC ${TEST_LIB})
     endforeach()
 endif()

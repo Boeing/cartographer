@@ -139,35 +139,6 @@ void SerializeTrajectoryData(
   }
 }
 
-void SerializeImuData(const sensor::MapByTime<sensor::ImuData>& all_imu_data,
-                      ProtoStreamWriterInterface* const writer) {
-  for (const int trajectory_id : all_imu_data.trajectory_ids()) {
-    for (const auto& imu_data : all_imu_data.trajectory(trajectory_id)) {
-      SerializedData proto;
-      auto* const imu_data_proto = proto.mutable_imu_data();
-      imu_data_proto->set_trajectory_id(trajectory_id);
-      *imu_data_proto->mutable_imu_data() = sensor::ToProto(imu_data);
-      writer->WriteProto(proto);
-    }
-  }
-}
-
-void SerializeOdometryData(
-    const sensor::MapByTime<sensor::OdometryData>& all_odometry_data,
-    ProtoStreamWriterInterface* const writer) {
-  for (const int trajectory_id : all_odometry_data.trajectory_ids()) {
-    for (const auto& odometry_data :
-         all_odometry_data.trajectory(trajectory_id)) {
-      SerializedData proto;
-      auto* const odometry_data_proto = proto.mutable_odometry_data();
-      odometry_data_proto->set_trajectory_id(trajectory_id);
-      *odometry_data_proto->mutable_odometry_data() =
-          sensor::ToProto(odometry_data);
-      writer->WriteProto(proto);
-    }
-  }
-}
-
 void SerializeFixedFramePoseData(
     const sensor::MapByTime<sensor::FixedFramePoseData>&
         all_fixed_frame_pose_data,
@@ -227,8 +198,6 @@ void WritePbStream(
                    writer);
   SerializeTrajectoryNodes(pose_graph.GetTrajectoryNodes(), writer);
   SerializeTrajectoryData(pose_graph.GetTrajectoryData(), writer);
-  SerializeImuData(pose_graph.GetImuData(), writer);
-  SerializeOdometryData(pose_graph.GetOdometryData(), writer);
   SerializeFixedFramePoseData(pose_graph.GetFixedFramePoseData(), writer);
   SerializeLandmarkNodes(pose_graph.GetLandmarkNodes(), writer);
 }

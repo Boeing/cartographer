@@ -63,6 +63,12 @@ class FakeTrimmable : public Trimmable {
     return submap_data_;
   }
 
+  const MapById<SubmapId, std::set<NodeId>> GetSubmapNodes() const {
+    // TODO
+    MapById<SubmapId, std::set<NodeId>> submap_nodes;
+    return submap_nodes;
+  }
+
   void set_trajectory_nodes(
       const MapById<NodeId, TrajectoryNode>& trajectory_nodes) {
     trajectory_nodes_ = trajectory_nodes;

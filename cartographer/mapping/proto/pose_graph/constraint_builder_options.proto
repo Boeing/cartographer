@@ -33,9 +33,6 @@ message ConstraintBuilderOptions {
   // Weight used in the optimization problem for the rotational component of loop closure constraints.
   double constraint_rotation_weight = 4;
 
-  // If enabled, logs information of loop-closing constraints for debugging.
-  bool log_matches = 5;
-
   // Options for the internally used scan matcher
   mapping.scan_matching.proto.CeresScanMatcherOptions2D ceres_scan_matcher_options = 6;
   mapping.scan_matching.proto.GlobalICPScanMatcherOptions2D global_icp_scan_matcher_options_2d = 7;
