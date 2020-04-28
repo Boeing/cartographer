@@ -26,9 +26,6 @@ struct Circle {
 std::vector<Circle<float>> DetectReflectivePoles(
     const sensor::PointCloud& point_cloud, const float radius);
 
-std::vector<Eigen::Array2i> DetectCircles(const ProbabilityGrid& grid,
-                                          const double radius);
-
 Circle<float> FitCircle(const Circle<float>& circle);
 
 }  // namespace mapping
