@@ -740,6 +740,7 @@ bool PoseGraph2D::IsTrajectoryFinished(const int trajectory_id) const {
 
 void PoseGraph2D::FreezeTrajectory(const int trajectory_id) {
   absl::MutexLock locker(&mutex_);
+  AddTrajectoryIfNeeded(trajectory_id);
   data_.trajectory_connectivity_state.Add(trajectory_id);
   CHECK(!IsTrajectoryFrozen(trajectory_id));
   data_.trajectories_state[trajectory_id].state = TrajectoryState::FROZEN;
