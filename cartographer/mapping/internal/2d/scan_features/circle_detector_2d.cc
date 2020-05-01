@@ -262,9 +262,9 @@ std::vector<Circle<float>> DBScan(
     CHECK(std::isfinite(circle.mse));
     CHECK(circle.position.allFinite());
 
-//    LOG(INFO) << "Circle cluster: " << cluster_detections.size()
-//              << " points: " << included_points.size()
-//              << " mse: " << circle.mse;
+    //    LOG(INFO) << "Circle cluster: " << cluster_detections.size()
+    //              << " points: " << included_points.size()
+    //              << " mse: " << circle.mse;
 
     clusters.push_back(circle);
   }

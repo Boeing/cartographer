@@ -266,8 +266,9 @@ ICPScanMatcher2D::Statistics ICPScanMatcher2D::EvalutateMatch(
   int hit_count = 0;
   int ray_trace_success_count = 0;
 
-  const double max_distance = 1.0 * submap_.grid()->limits().resolution();
-  const double max_squared_distance = max_distance * max_distance;
+  const double rt_threshold = 5.0 * submap_.grid()->limits().resolution();
+  const double hit_threshold = 2.0 * submap_.grid()->limits().resolution();
+  const double max_squared_distance = hit_threshold * hit_threshold;
 
   const size_t num_results = 1;
   size_t ret_index;
@@ -296,17 +297,24 @@ ICPScanMatcher2D::Statistics ICPScanMatcher2D::EvalutateMatch(
           pg->limits().cell_limits().num_x_cells);
 
       // Consider point as valid if it is not behind occupied space
-      // this will return the first cell which is occupied
+      // this will return the first cell which is occupied between the robot and
+      // the scanned point
+
       if (p.x != -1 && p.y != -1) {
+        // we hit an occupied cell along the ray trace
+        // we check that this cell is close to a the original scanned point
+        // if it is close then its ok (can just be considered noise)
         const Eigen::Vector2f inter =
             pg->limits().GetCellCenter(Eigen::Array2i(p.x, p.y));
         const float dist_from_end =
             Eigen::Vector2f(query_pt[0] - inter[0], query_pt[1] - inter[1])
                 .norm();
-        if (dist_from_end < 0.1) {
+        if (dist_from_end < rt_threshold) {
           ++ray_trace_success_count;
         }
       } else {
+        // We did not hit a cell
+        // therefore the ray trace was successful
         ++ray_trace_success_count;
       }
     }
