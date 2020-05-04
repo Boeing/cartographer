@@ -32,7 +32,8 @@ inline Point bresenham2D(const ProbabilityGrid& grid, unsigned int abs_da,
     const Eigen::Array2i cell{mx, my};
     if (!grid.limits().Contains(cell)) return {-1, -1};
     auto cc = grid.correspondence_cost_cells().at(grid.ToFlatIndex(cell));
-    if (cc < occupied_value) return {mx, my};
+    if (cc != kUnknownCorrespondenceValue && cc < occupied_value)
+      return {mx, my};
 
     offset += offset_a;
     error_b += abs_db;
