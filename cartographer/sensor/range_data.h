@@ -25,6 +25,17 @@
 namespace cartographer {
 namespace sensor {
 
+struct SingleRange {
+  Eigen::Vector3f origin;
+  Eigen::Vector3f position;
+  float time;
+  float intensity;
+};
+
+struct DenseRangeData {
+  std::vector<SingleRange> scan;
+};
+
 // Rays begin at 'origin'. 'returns' are the points where obstructions were
 // detected. 'misses' are points in the direction of rays for which no return
 // was detected, and were inserted at a configured distance. It is assumed that

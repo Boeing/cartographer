@@ -160,13 +160,14 @@ cartographer::io::UniqueCairoSurfacePtr ProbabilityGrid::DrawSurface() const {
     const int i = ToFlatIndex(xy_index);
 
     if (!IsKnown(xy_index)) {
-      pixel_data[i] = (255 << 24) | (0 << 16) | (0 << 8) | (0);
+      // alpha - red - green - blue
+      pixel_data[i] = (255 << 24) | (150 << 16) | (150 << 8) | (150);
     } else {
       const float prob = GetProbability(xy_index);
-      const uint8_t o_intensity = 255 * std::max(0.f, prob - 0.5f) / 0.5f;
-      const uint8_t m_intensity = 255 * (0.5f - std::min(0.5f, prob)) / 0.5f;
-      pixel_data[i] =
-          (255 << 24) | (o_intensity << 16) | (m_intensity << 8) | (0);
+      const uint8_t v = 255 - prob * 255;
+
+      // alpha - red - green - blue
+      pixel_data[i] = (255 << 24) | (v << 16) | (v << 8) | (v);
     }
   }
 

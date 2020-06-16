@@ -78,11 +78,7 @@ LocalTrajectoryBuilder2D::AddRangeData(
         extrapolator_->ExtrapolatePose(time_point).pose.cast<float>());
   }
 
-  if (num_accumulated_ == 0) {
-    // 'accumulated_range_data_.origin' is uninitialized until the last
-    // accumulation
-    accumulated_range_data_ = sensor::RangeData{{}, {}, {}};
-  }
+  sensor::RangeData accumulated_range_data = sensor::RangeData{{}, {}, {}};
 
   // Drop any returns below the minimum range and convert returns beyond the
   // maximum range into misses
@@ -98,53 +94,39 @@ LocalTrajectoryBuilder2D::AddRangeData(
     const float range = delta.norm();
     if (range >= options_.min_range()) {
       if (range <= options_.max_range()) {
-        accumulated_range_data_.returns.push_back(hit_in_local);
+        accumulated_range_data.returns.push_back(hit_in_local);
       } else {
         hit_in_local.position =
             origin_in_local +
             options_.missing_data_ray_length() / range * delta;
-        accumulated_range_data_.misses.push_back(hit_in_local);
+        accumulated_range_data.misses.push_back(hit_in_local);
       }
     }
   }
-  ++num_accumulated_;
 
-  if (num_accumulated_ >= options_.num_accumulated_range_data()) {
-    const common::Time current_sensor_time = synchronized_data.time;
-    absl::optional<common::Duration> sensor_duration;
-    if (last_sensor_time_.has_value()) {
-      sensor_duration = current_sensor_time - last_sensor_time_.value();
-    }
-    last_sensor_time_ = current_sensor_time;
-    num_accumulated_ = 0;
-
-    accumulated_range_data_.origin =
-        pose_prediction.pose.translation().cast<float>();
-
-    const auto range_data_wrt_tracking = sensor::TransformRangeData(
-        accumulated_range_data_, pose_prediction.pose.inverse().cast<float>());
-    const auto cropped = sensor::CropRangeData(
-        range_data_wrt_tracking, options_.min_z(), options_.max_z());
-
-    const auto voxel_filtered =
-        sensor::RangeData{cropped.origin,
-                          sensor::VoxelFilter(options_.voxel_filter_size())
-                              .Filter(cropped.returns),
-                          sensor::VoxelFilter(options_.voxel_filter_size())
-                              .Filter(cropped.misses)};
-
-    return AddAccumulatedRangeData(time, pose_prediction, voxel_filtered,
-                                   sensor_duration);
+  const common::Time current_sensor_time = synchronized_data.time;
+  absl::optional<common::Duration> sensor_duration;
+  if (last_sensor_time_.has_value()) {
+    sensor_duration = current_sensor_time - last_sensor_time_.value();
   }
-  return nullptr;
-}
+  last_sensor_time_ = current_sensor_time;
 
-std::unique_ptr<LocalTrajectoryBuilder2D::MatchingResult>
-LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
-    const common::Time time,
-    const PoseExtrapolator::Extrapolation& pose_prediction,
-    const sensor::RangeData& range_data_wrt_tracking,
-    const absl::optional<common::Duration>& sensor_duration) {
+  accumulated_range_data.origin =
+      pose_prediction.pose.translation().cast<float>();
+
+  const auto accumulated_range_data_wrt_tracking = sensor::TransformRangeData(
+      accumulated_range_data, pose_prediction.pose.inverse().cast<float>());
+
+  const auto cropped = sensor::CropRangeData(
+      accumulated_range_data_wrt_tracking, options_.min_z(), options_.max_z());
+
+  const auto voxel_filtered = sensor::RangeData{
+      cropped.origin,
+      sensor::VoxelFilter(options_.voxel_filter_size()).Filter(cropped.returns),
+      sensor::VoxelFilter(options_.voxel_filter_size()).Filter(cropped.misses)};
+
+  const sensor::RangeData& range_data_wrt_tracking = voxel_filtered;
+
   CHECK(!range_data_wrt_tracking.returns.empty());
 
   const transform::Rigid2d pose_prediction_2d =
@@ -197,7 +179,7 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
 
   const transform::Rigid3d pose_estimate = transform::Embed3D(pose_estimate_2d);
 
-  if (scan_match_shift.translation().norm() > 0.02) {
+  if (scan_match_shift.translation().norm() > 0.08) {
     LOG(WARNING) << "Excessive scan match shift: "
                  << scan_match_shift.translation().transpose();
   }

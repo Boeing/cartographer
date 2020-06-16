@@ -264,6 +264,11 @@ ConstraintBuilder2D::ComputeConstraint(
   // Debug visualisation
   //
   {
+    const std::string prefix = "cartographer_debug/match_t" +
+                               std::to_string(submap_id.trajectory_id) + "_n" +
+                               std::to_string(node_id.node_index) + "_s" +
+                               std::to_string(submap_id.submap_index) + "_";
+
     const auto grid = dynamic_cast<const mapping::ProbabilityGrid*>(
         submap_scan_matcher.submap.grid());
 
@@ -286,36 +291,28 @@ ConstraintBuilder2D::ComputeConstraint(
          submap_scan_matcher.global_icp_scan_matcher->IcpSolver()
              .kdtree()
              .cells.cells) {
-      cairo_set_source_rgba(cr, 1.0, 1.0, 0.3, 1);
+      cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 1);
       cairo_set_line_width(cr, 1.0);
       const auto mp = grid->limits().GetCellIndex({cell.x, cell.y});
       cairo_rectangle(cr, mp.x(), mp.y(), 1, 1);
       cairo_fill(cr);
     }
 
-    for (const auto& cluster : clusters) {
-      cairo_new_path(cr);
-      cairo_set_source_rgba(cr, 1, 0, 0, 1);
-      cairo_set_line_width(cr, 1.0);
-      const auto mp = grid->limits().GetCellIndex({cluster.x, cluster.y});
-      cairo_arc(cr, mp.x(), mp.y(), 8.0, 0, 2 * M_PI);
-      auto dir = Eigen::Rotation2Df(cluster.poses.front().rotation) *
-                 Eigen::Vector2f(10.0, 0);
-      cairo_stroke(cr);
-      cairo_new_path(cr);
-      cairo_move_to(cr, mp.x(), mp.y());
-      cairo_line_to(cr, mp.x() - dir.y(), mp.y() - dir.x());
-      cairo_stroke(cr);
+    const std::string fname = prefix + ".png";
+    cairo_surface_write_to_png(surface.get(), fname.c_str());
 
+    // draw the proposals
+    for (const auto& cluster : clusters) {
       std::uniform_real_distribution<double> dist(0, 1);
       std::random_device rd;
       std::mt19937 gen(rd());
 
       const double c_b = dist(gen);
+      const double c_g = dist(gen);
 
       for (const auto& pose : cluster.poses) {
         const auto _mp = grid->limits().GetCellIndex({pose.x, pose.y});
-        cairo_set_source_rgba(cr, 0.2, 0.2, c_b, 1.0);
+        cairo_set_source_rgba(cr, 0.5, c_g, c_b, 1.0);
         cairo_new_path(cr);
         cairo_arc(cr, _mp.x(), _mp.y(), 4.0, 0, 2 * M_PI);
         cairo_stroke(cr);
@@ -329,19 +326,18 @@ ConstraintBuilder2D::ComputeConstraint(
       }
     }
 
-    for (const auto& match : cluster_results) {
-      if (match.success)
-        cairo_set_source_rgba(cr, 0.5, 1.0, 0, match.score);
-      else
-        cairo_set_source_rgba(cr, 1.0, 0.0, 0, match.score);
-      cairo_set_line_width(cr, 2.0);
+    const std::string proposals_fname = prefix + "proposals.png";
+    cairo_surface_write_to_png(surface.get(), proposals_fname.c_str());
+
+    // draw the cluster origins
+    for (const auto& cluster : clusters) {
       cairo_new_path(cr);
-      const auto mp =
-          grid->limits().GetCellIndex({match.pose_estimate.translation().x(),
-                                       match.pose_estimate.translation().y()});
-      cairo_arc(cr, mp.x(), mp.y(), 14.0, 0, 2 * M_PI);
-      const auto dir = match.pose_estimate.rotation().cast<float>() *
-                       Eigen::Vector2f(30.0, 0);
+      cairo_set_source_rgba(cr, 1, 0, 0, 1);
+      cairo_set_line_width(cr, 1.0);
+      const auto mp = grid->limits().GetCellIndex({cluster.x, cluster.y});
+      cairo_arc(cr, mp.x(), mp.y(), 5.0, 0, 2 * M_PI);
+      auto dir = Eigen::Rotation2Df(cluster.poses.front().rotation) *
+                 Eigen::Vector2f(7.0, 0);
       cairo_stroke(cr);
       cairo_new_path(cr);
       cairo_move_to(cr, mp.x(), mp.y());
@@ -349,8 +345,52 @@ ConstraintBuilder2D::ComputeConstraint(
       cairo_stroke(cr);
     }
 
+    const std::string proposals_clusters_fname =
+        prefix + "proposals_clusters.png";
+    cairo_surface_write_to_png(surface.get(), proposals_clusters_fname.c_str());
+
+    for (std::size_t i = 0; i < cluster_results.size(); ++i) {
+      const auto& cluster = clusters[i];
+      const auto& match = cluster_results[i];
+
+      cairo_set_line_width(cr, 1.0);
+
+      if (match.success)
+        cairo_set_source_rgba(cr, 0.5, 1.0, 0, 1.0);
+      else
+        cairo_set_source_rgba(cr, 1.0, 0.0, 0, 1.0);
+
+      cairo_new_path(cr);
+      const auto mp =
+          grid->limits().GetCellIndex({match.pose_estimate.translation().x(),
+                                       match.pose_estimate.translation().y()});
+      cairo_arc(cr, mp.x(), mp.y(), 8.0, 0, 2 * M_PI);
+      const auto dir = match.pose_estimate.rotation().cast<float>() *
+                       Eigen::Vector2f(10.0, 0);
+      cairo_stroke(cr);
+      cairo_new_path(cr);
+      cairo_move_to(cr, mp.x(), mp.y());
+      cairo_line_to(cr, mp.x() - dir.y(), mp.y() - dir.x());
+      cairo_stroke(cr);
+
+      const auto cluster_mp =
+          grid->limits().GetCellIndex({cluster.x, cluster.y});
+
+      cairo_new_path(cr);
+      cairo_set_line_width(cr, 1.0);
+      cairo_set_source_rgba(cr, 0.5, 1.0, 0.5, 1.0);
+      cairo_move_to(cr, cluster_mp.x(), cluster_mp.y());
+      cairo_line_to(cr, mp.x(), mp.y());
+      cairo_stroke(cr);
+    }
+
+    const std::string proposals_clusters_opt_fname =
+        prefix + "proposals_clusters_opt.png";
+    cairo_surface_write_to_png(surface.get(),
+                               proposals_clusters_opt_fname.c_str());
+
     // Visualise the best match
-    if (best_match) {
+    if (best_match && best_match->success) {
       if (best_match->success)
         cairo_set_source_rgba(cr, 0.5, 1.0, 0, 1);
       else
@@ -380,8 +420,8 @@ ConstraintBuilder2D::ComputeConstraint(
         if (point.intensity > 0)
           cairo_set_source_rgba(cr, 1, 1, 1, 1);
         else
-          cairo_set_source_rgba(cr, 0, 0, 1, 1);
-        cairo_rectangle(cr, mp.x(), mp.y(), 1, 1);
+          cairo_set_source_rgba(cr, 1, 0, 0, 1);
+        cairo_rectangle(cr, mp.x(), mp.y(), 2, 2);
         cairo_fill(cr);
       }
 
@@ -406,16 +446,16 @@ ConstraintBuilder2D::ComputeConstraint(
         cairo_stroke(cr);
       }
 
-      const auto proposal_tpc = sensor::TransformPointCloud(
-          constant_data.range_data.returns,
-          transform::Embed3D(best_match->icp_pose_proposal.cast<float>()));
-      for (const auto& point : proposal_tpc) {
-        cairo_set_source_rgba(cr, 1, 0, 0, 1);
-        const auto mp = grid->limits().GetCellIndex(
-            {point.position.x(), point.position.y()});
-        cairo_rectangle(cr, mp.x(), mp.y(), 1, 1);
-        cairo_fill(cr);
-      }
+      //      const auto proposal_tpc = sensor::TransformPointCloud(
+      //          constant_data.range_data.returns,
+      //          transform::Embed3D(best_match->icp_pose_proposal.cast<float>()));
+      //      for (const auto& point : proposal_tpc) {
+      //        cairo_set_source_rgba(cr, 1, 0, 0, 1);
+      //        const auto mp = grid->limits().GetCellIndex(
+      //            {point.position.x(), point.position.y()});
+      //        cairo_rectangle(cr, mp.x(), mp.y(), 1, 1);
+      //        cairo_fill(cr);
+      //      }
 
       for (const auto& f : constant_data.circle_features) {
         cairo_set_source_rgba(cr, 1, 0.8, 0.2, 1.0);
@@ -431,11 +471,8 @@ ConstraintBuilder2D::ComputeConstraint(
 
     cairo_destroy(cr);
 
-    const std::string fname = "cartographer_debug/match_t" +
-                              std::to_string(submap_id.trajectory_id) + "_n" +
-                              std::to_string(node_id.node_index) + "_s" +
-                              std::to_string(submap_id.submap_index) + ".png";
-    cairo_surface_write_to_png(surface.get(), fname.c_str());
+    const std::string best_fname = prefix + "proposals_clusters_opt_best.png";
+    cairo_surface_write_to_png(surface.get(), best_fname.c_str());
   }
 
   if (best_match && best_match->success) {

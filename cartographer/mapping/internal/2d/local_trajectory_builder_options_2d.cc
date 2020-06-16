@@ -44,8 +44,6 @@ proto::LocalTrajectoryBuilderOptions2D CreateLocalTrajectoryBuilderOptions2D(
   options.set_max_z(parameter_dictionary->GetDouble("max_z"));
   options.set_missing_data_ray_length(
       parameter_dictionary->GetDouble("missing_data_ray_length"));
-  options.set_num_accumulated_range_data(
-      parameter_dictionary->GetInt("num_accumulated_range_data"));
 
   *options.mutable_circle_feature_options() = CreateCircleFeatureOptions(
       parameter_dictionary->GetDictionary("circle_feature_options").get());

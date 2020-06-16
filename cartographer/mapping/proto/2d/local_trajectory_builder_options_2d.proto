@@ -36,19 +36,16 @@ message LocalTrajectoryBuilderOptions2D {
   // Points beyond 'max_range' will be inserted with this length as empty space.
   float missing_data_ray_length = 5;
 
-  // Number of range data to accumulate into one unwarped, combined range data to use for scan matching.
-  int32 num_accumulated_range_data = 6;
-
-  CircleFeatureOptions circle_feature_options = 7;
+  CircleFeatureOptions circle_feature_options = 6;
 
   // Voxel filter that gets applied to the range data immediately after cropping.
-  float voxel_filter_size = 8;
+  float voxel_filter_size = 7;
 
   // Voxel filter used to compute a sparser point cloud for matching.
-  sensor.proto.AdaptiveVoxelFilterOptions adaptive_voxel_filter_options = 9;
+  sensor.proto.AdaptiveVoxelFilterOptions adaptive_voxel_filter_options = 8;
 
-  cartographer.mapping.scan_matching.proto.CeresScanMatcherOptions2D ceres_scan_matcher_options = 10;
-  MotionFilterOptions motion_filter_options = 11;
+  cartographer.mapping.scan_matching.proto.CeresScanMatcherOptions2D ceres_scan_matcher_options = 9;
+  MotionFilterOptions motion_filter_options = 10;
 
-  SubmapsOptions2D submaps_options = 12;
+  SubmapsOptions2D submaps_options = 11;
 }

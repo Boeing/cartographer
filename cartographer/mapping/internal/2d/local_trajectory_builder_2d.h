@@ -72,17 +72,13 @@ class LocalTrajectoryBuilder2D {
   std::unique_ptr<MatchingResult> AddRangeData(
       const std::string& sensor_id,
       const sensor::TimedPointCloudData& range_data);
+
   void AddImuData(const sensor::ImuData& imu_data);
   void AddOdometryData(const sensor::OdometryData& odometry_data);
 
   static void RegisterMetrics(metrics::FamilyFactory* family_factory);
 
  private:
-  std::unique_ptr<MatchingResult> AddAccumulatedRangeData(
-      common::Time time, const PoseExtrapolator::Extrapolation& pose_prediction,
-      const sensor::RangeData& range_data_wrt_tracking,
-      const absl::optional<common::Duration>& sensor_duration);
-
   const proto::LocalTrajectoryBuilderOptions2D options_;
   ActiveSubmaps2D active_submaps_;
 
@@ -90,9 +86,6 @@ class LocalTrajectoryBuilder2D {
   scan_matching::CeresScanMatcher2D ceres_scan_matcher_;
 
   std::unique_ptr<PoseExtrapolator> extrapolator_;
-
-  int num_accumulated_ = 0;
-  sensor::RangeData accumulated_range_data_;
 
   absl::optional<std::chrono::steady_clock::time_point> last_wall_time_;
   absl::optional<double> last_thread_cpu_time_seconds_;
