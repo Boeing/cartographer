@@ -4,25 +4,6 @@ Based on [goolge-cartographer](https://github.com/googlecartographer/cartographe
 
 Modified for fast robust 2D SLAM for factory environments.
 
-**Changes from upstream**
-- Add 2D Submap features
-  - Match reflective poles for robust constraint matching
-- Add `GlobalICPScanMatcher2D`
-  - Fast sampling based global constraint finder
-  - Significantly faster than `FastCorrelativeScanMatcher2D` (1s verse 30s)
-- Add `ICPScanMatcher2D`
-  - Fast dense point matcher
-  - Allows for significant deviation from local minima
-  - Inclusion of 2d features (in addition to points)
-- Optimise `PoseExtrapolator` for wheeled odometry rather than IMU
-  - Achieve perfect maps in sim
-  - Resolve issues with rotations / poor local mapping
-- Remove 3d mapping
-- Add heuristics for performant constraint finding
-  - Desired number of constraints per submap / trajectory
-  - Maximum work queue size
-- RangeDataCollator strategy
-
 ## Why not upstream?
 
 The reality is (despite being a Google project) upstream cartographer performs poorly. In retrospect, the rather long online "tuning" guide was a good clue that it was not production ready. The unfortunate situation however is that in mid-2019 the project quietly stopped any progress, with rumors that it was dropped internally.
@@ -68,6 +49,43 @@ The solution was to:
 - Implement a single background thread for constraint searching and optimization.
 
 This simple single background thread allows for more sophisticated heuristics and logic to be added to the process of constraint finding and optimization. Decisions like whether to search globally or locally and how far to search for constraints, can be easily made and modified.
+
+## Monte Carlo Global ICP
+
+We required a fast and robust algorithm to evaluate if a scan matches a submap. This algorithm is required to find constraints to previously generated submaps with or without a prior pose.
+
+Process
+1. Randomly sample proposals across the free space of the submap
+2. Select the good proposals (with fast short-circuit logic) based on a number of heuristics (average point-to-map distance, ray-cast checks, average feature hit distance, point inliers, etc.)
+3. Cluster the good proposals with DBScan and computed the weighted center.
+4. Run ICP (with features) on the cluster centers.
+5. Select the best ICP convergence
+6. Test the pose based on a number of heuristics (hit, ray-cast, etc.) to determine score and suitability of constraint
+
+Randomness is used to minimize the number of proposals required to find a suitable prior for ICP. Clustering helps to reduce the number of ICP attempts. ICP is excellent at converging to the best match (if started near the solution).
+
+## Changes from upstream
+
+- Add 2D Submap features
+  - Match reflective poles for robust constraint matching
+- Add `GlobalICPScanMatcher2D`
+  - Fast sampling based global constraint finder
+  - Significantly faster than `FastCorrelativeScanMatcher2D` (1s verse 30s)
+- Add `ICPScanMatcher2D`
+  - Fast dense point matcher
+  - Allows for significant deviation from local minima
+  - Inclusion of 2d features (in addition to points)
+- Optimise `PoseExtrapolator` for wheeled odometry rather than IMU
+  - Achieve perfect maps in sim
+  - Resolve issues with rotations / poor local mapping
+- Remove 3d mapping
+- Add heuristics for performant constraint finding
+  - Desired number of constraints per submap / trajectory
+  - Maximum work queue size
+- RangeDataCollator strategy
+  - Use a 'one-of-each' strategy rather than time based
+- Simplify background task managmenet
+  - Remove the complex task queue and thread pool, replace with a single background thread
 
 ## How to Build
 
