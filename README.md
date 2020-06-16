@@ -65,7 +65,9 @@ The solution was to:
 - Remove the task queue and thread pool
 - Make all fast API operations synchronous (add node, etc.)
 - Copy the pose graph data for background optimization (to prevent holding the data mutex)
-- Implementing a single background thread for constraint searching and optimization.
+- Implement a single background thread for constraint searching and optimization.
+
+This simple single background thread allows for more sophisticated heuristics and logic to be added to the process of constraint finding and optimization. Decisions like whether to search globally or locally and how far to search for constraints, can be easily made and modified.
 
 ## How to Build
 
