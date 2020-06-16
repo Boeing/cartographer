@@ -23,6 +23,23 @@ Modified for fast robust 2D SLAM for factory environments.
   - Maximum work queue size
 - RangeDataCollator strategy
 
+## Why not upstream?
+
+The reality is (despite being a Google project) upstream cartographer performs poorly. In retrospect, the rather long online "tuning" guide was a good clue that it was not production ready. The unfortunate situation however is that in mid-2019 the project quietly stopped any progress, with rumors that it was dropped internally.
+
+If you pull cartographer from upstream there are three fundamental issues:
+-	Noisy odometry estimation
+-	Poor performing constraint finding
+-	Complex background task management
+
+*Noisy Odometry*
+First and foremost, the way which cartographer estimates odometry is noisy. This results in blurry maps. The code in question is found in ` PoseExtrapolator`. The job of the ` PoseExtrapolator` is to estimate the pose of the robot for front end mapping. Estimated robot poses are required to first project the points of a rotating laser (due to the motion of the vehicle) and then seed the Ceres scan matcher (to match the laser scan to the current submap). Once the scan matcher has run, the front end mapper is able to pass this data to the back end to generate a node in the pose graph. Inaccuracy in the estimated pose of the robot will first cause blurry projected points for a spinning lidar, and secondly potentially throw off the Ceres scan matcher with a bad prior.
+
+The original implementation sent both IMU and Odometry data to the `PoseExtrapolator` class. In addition, each time a Ceres scan match was performed this updated pose was sent to the `PoseExtrapolator` as a “node” (used as a reference point).  Extrapolation was implemented as a bizarre combination of both IMU and Odometry to estimate the velocity of the robot at any point in time, which essentially integrated the position of the robot since the last inserted “node”. The IMU data was smoothed with an exponential decaying moving average filter, the Odometry data was not smoothed. Frustratingly the Odometry data is missing velocity, so velocity is estimated with instantaneous calculations. Overall this approach produced noisy odometry. This is most evident in a simulator where perfect data yields blurry maps.
+
+The solution was quite straightforward. We replaced this implementation with a rolling buffer (sufficiently sized) of Odometry messages. Velocity information was added to the Odometry struct. A single “node” is kept as a reference point in the same way as before. When the robot pose is required at a particular time we traverse the rolling buffer and interpolate the correct reference pose at the “node” time, then do the same for the queried time. The extrapolated pose is the “node” pose plus the transform between the two interpolated poses. This results in perfectly interpolated odometry since the last successfully scan matched “node”. Perfect maps given perfect data.
+
+
 ## How to Build
 
 **Build protobuf**
