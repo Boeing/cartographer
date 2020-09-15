@@ -52,6 +52,12 @@ proto::ICPScanMatcherOptions2D CreateICPScanMatcherOptions2D(
       parameter_dictionary->GetDouble("point_inlier_threshold"));
   options.set_feature_inlier_threshold(
       parameter_dictionary->GetDouble("feature_inlier_threshold"));
+  options.set_raytrace_threshold(
+      parameter_dictionary->GetDouble("raytrace_threshold"));
+  options.set_hit_threshold(
+      parameter_dictionary->GetDouble("hit_threshold"));
+  options.set_feature_match_threshold(
+      parameter_dictionary->GetDouble("feature_match_threshold"));
   return options;
 }
 
@@ -78,6 +84,9 @@ ICPScanMatcher2D::ICPScanMatcher2D(
   CHECK(options_.feature_weight() + options_.point_weight() > 0);
   CHECK(options_.point_inlier_threshold() > 0);
   CHECK(options_.feature_inlier_threshold() > 0);
+  CHECK(options_.raytrace_threshold() >= 0);
+  CHECK(options_.hit_threshold() >= 0);
+  CHECK(options_.feature_match_threshold() >= 0);
 }
 
 ICPScanMatcher2D::~ICPScanMatcher2D() {}
@@ -180,6 +189,7 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
   }
 
   Result result;
+  result.features_match_count = 0;
   result.points_count = included_points.size();
   result.points_inlier_fraction =
       !point_cloud.empty()
@@ -221,6 +231,7 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
     }
   }
 
+  // Adding included features
   {
     size_t ret_index;
     float out_dist_sqr;
@@ -240,12 +251,40 @@ ICPScanMatcher2D::Result ICPScanMatcher2D::Match(
 
       circle_feature_index_.kdtree->findNeighbors(result_set, &query_pt[0],
                                                   nanoflann::SearchParams(10));
-
       result.pairs.push_back({world,
                               {circle_feature_index_.feature_set.data[ret_index]
                                    .keypoint.position.x(),
                                circle_feature_index_.feature_set.data[ret_index]
                                    .keypoint.position.y()}});
+    }
+  }
+
+  {
+    const double feature_match_d2 = options_.feature_match_threshold() * options_.feature_match_threshold();
+
+    size_t ret_index;
+    float out_dist_sqr;
+    float query_pt[3];
+    nanoflann::KNNResultSet<float> result_set(1);
+    for (size_t i = 0; i < features.size(); ++i) {
+      const Eigen::Vector2d fp(
+          features[i].keypoint.position.x(),
+          features[i].keypoint.position.y());
+      const auto world = result.pose_estimate * fp;
+
+      result_set.init(&ret_index, &out_dist_sqr);
+
+      query_pt[0] = static_cast<float>(world[0]);
+      query_pt[1] = static_cast<float>(world[1]);
+      query_pt[2] = features[i].fdescriptor.radius;
+
+      circle_feature_index_.kdtree->findNeighbors(result_set, &query_pt[0],
+                                                  nanoflann::SearchParams(10));
+
+      // LOG(INFO) << "Feature distance^2: " << out_dist_sqr;
+      if (out_dist_sqr < feature_match_d2) {
+        result.features_match_count++;
+      }
     }
   }
 
@@ -261,13 +300,13 @@ ICPScanMatcher2D::Statistics ICPScanMatcher2D::EvalutateMatch(
   statistics.hit_fraction = 1.0;
   statistics.ray_trace_fraction = 1.0;
 
-  auto pg = dynamic_cast<const mapping::ProbabilityGrid*>(submap_.grid());
+  auto pg = submap_.grid();
 
   int hit_count = 0;
   int ray_trace_success_count = 0;
 
-  const double rt_threshold = 5.0 * submap_.grid()->limits().resolution();
-  const double hit_threshold = 2.0 * submap_.grid()->limits().resolution();
+  const double rt_threshold = options_.raytrace_threshold();
+  const double hit_threshold = options_.hit_threshold();
   const double max_squared_distance = hit_threshold * hit_threshold;
 
   const size_t num_results = 1;

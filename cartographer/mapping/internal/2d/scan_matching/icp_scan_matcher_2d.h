@@ -41,6 +41,8 @@ class ICPScanMatcher2D {
     double points_inlier_fraction;
     double features_inlier_fraction;
 
+    unsigned int features_match_count;
+
     std::vector<std::pair<Eigen::Vector2d, Eigen::Vector2d>> pairs;
   };
 

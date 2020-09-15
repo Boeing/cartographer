@@ -25,7 +25,7 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   std::uniform_real_distribution<float> distribution(-0.01f, 0.01f);
 
   const float resolution = 0.02;
-  const float side_length = 40.0;
+  const float side_length = 10.0;
   const int cells = side_length / resolution;
 
   ValueConversionTables conversion_tables;
@@ -56,7 +56,7 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
 
         if (jj > box_y + 2 && jj < box_y + box_size_y - 2) {
           if (ii > box_x + 2 && ii < box_x + box_size_x - 2) {
-            probability_grid.SetProbability({ii, jj}, 0.2);
+            probability_grid.SetProbability({ii, jj}, 0.1);
             continue;
           }
         }
@@ -132,10 +132,10 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
 
   proto::GlobalICPScanMatcherOptions2D global_icp_config;
   global_icp_config.set_num_global_samples_per_sq_m(4);
-  global_icp_config.set_num_global_rotations(16);
+  global_icp_config.set_num_global_rotations(128);
 
-  global_icp_config.set_proposal_point_inlier_threshold(1.0);
-  global_icp_config.set_proposal_feature_inlier_threshold(1.0);
+  global_icp_config.set_proposal_point_inlier_threshold(1.5);
+  global_icp_config.set_proposal_feature_inlier_threshold(1.5);
 
   global_icp_config.set_proposal_min_points_inlier_fraction(0.3);
   global_icp_config.set_proposal_min_features_inlier_fraction(0.3);
@@ -149,9 +149,10 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   global_icp_config.set_proposal_max_features_error(1.0);
   global_icp_config.set_proposal_max_error(1.0);
 
-  global_icp_config.set_min_cluster_size(3);
-  global_icp_config.set_min_cluster_distance(3.0);
-  global_icp_config.set_num_local_samples(100);
+  global_icp_config.set_min_cluster_size(2);
+  global_icp_config.set_max_cluster_size(100);
+  global_icp_config.set_min_cluster_distance(0.4);
+  global_icp_config.set_num_local_samples(8);
   global_icp_config.set_local_sample_linear_distance(0.2);
   global_icp_config.set_local_sample_angular_distance(0.2);
   *global_icp_config.mutable_icp_options() = icp_config;

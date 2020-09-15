@@ -22,8 +22,36 @@ if(NOT GMock_FOUND)
   )
 
   # Find system-wide installed gmock.
-  find_library(GMOCK_LIBRARIES
+  find_library(GMOCK_MAIN_LIB
     NAMES gmock_main
+    HINTS
+      ENV GMOCK_DIR
+    PATH_SUFFIXES lib
+    PATHS
+      /usr
+  )
+
+  # Find system-wide installed gmock.
+  find_library(GMOCK_LIB
+    NAMES gmock
+    HINTS
+      ENV GMOCK_DIR
+    PATH_SUFFIXES lib
+    PATHS
+      /usr
+  )
+
+  find_library(GTEST_MAIN_LIB
+    NAMES gtest_main
+    HINTS
+      ENV GMOCK_DIR
+    PATH_SUFFIXES lib
+    PATHS
+      /usr
+  )
+
+  find_library(GTEST_LIB
+    NAMES gtest
     HINTS
       ENV GMOCK_DIR
     PATH_SUFFIXES lib
@@ -40,8 +68,9 @@ if(NOT GMock_FOUND)
       /usr
   )
   list(APPEND GMOCK_INCLUDE_DIRS ${GTEST_INCLUDE_DIRS})
+  list(APPEND GMOCK_LIBRARIES ${GMOCK_LIB} ${GMOCK_MAIN_LIB} ${GTEST_LIB} ${GTEST_MAIN_LIB})
 
-  if(NOT GMOCK_LIBRARIES)
+  if(NOT GMOCK_LIB OR NOT GMOCK_MAIN_LIB OR NOT GTEST_LIB OR NOT GTEST_MAIN_LIB)
     # If no system-wide gmock found, then find src version.
     # Ubuntu might have this.
     find_path(GMOCK_SRC_DIR src/gmock.cc

@@ -29,4 +29,9 @@ message ICPScanMatcherOptions2D {
   // pairs with and error greater than this are not included in the optimisation
   double point_inlier_threshold = 8;
   double feature_inlier_threshold = 9;
+
+  // Used for evaluating a match
+  double raytrace_threshold = 10;
+  double hit_threshold = 11;
+  double feature_match_threshold = 12;
 }

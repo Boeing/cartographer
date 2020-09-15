@@ -1,6 +1,6 @@
 # Boeing Cartographer
 
-Based on [goolge-cartographer](https://github.com/googlecartographer/cartographer)
+Based on [google-cartographer](https://github.com/googlecartographer/cartographer)
 
 Modified for fast robust 2D SLAM for factory environments.
 
@@ -75,6 +75,8 @@ Randomness is used to minimize the number of proposals required to find a suitab
   - Fast dense point matcher
   - Allows for significant deviation from local minima
   - Inclusion of 2d features (in addition to points)
+  - Match evaluation based on raytracing and hit (of all points, not just subsampled points)
+  - Match evaluation based on feature match
 - Optimise `PoseExtrapolator` for wheeled odometry rather than IMU
   - Achieve perfect maps in sim
   - Resolve issues with rotations / poor local mapping
@@ -116,14 +118,14 @@ make install
 
 **For development of cartographer**
 - Modify `cartographer_ros` cmake to point to the install path for cartographer
-CMakeLists.txt
-```
-# Remove the `externalproject_add`
+CMakeLists.txt.
 
-# Cartographer
-set(CARTOGRAPHER_PROJECT_NAME cartographer)
+Above the line
+```bash
+if (NOT DEFINED CARTOGRAPHER_INSTALL_DIR)
+```
+add
+```
 set(CARTOGRAPHER_INSTALL_DIR /home/boeing/ros/cartographer/build/install)
-set(CARTOGRAPHER_INCLUDE_DIRS ${CARTOGRAPHER_INSTALL_DIR}/include)
-set(CARTOGRAPHER_LIBRARIES ${CARTOGRAPHER_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cartographer${CMAKE_STATIC_LIBRARY_SUFFIX})
-
 ```
+

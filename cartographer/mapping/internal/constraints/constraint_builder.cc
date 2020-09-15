@@ -60,6 +60,8 @@ proto::ConstraintBuilderOptions CreateConstraintBuilderOptions(
 
   options.set_min_ray_trace_fraction(
       parameter_dictionary->GetDouble("min_ray_trace_fraction"));
+  options.set_min_icp_features_match_fraction(
+      parameter_dictionary->GetDouble("min_icp_features_match_fraction"));
 
   return options;
 }
