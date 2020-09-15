@@ -12,7 +12,7 @@ RealIndex CreateRealIndexForGrid(const Grid2D& grid) {
   RealIndex res;
   const auto occupied_value = ProbabilityToCorrespondenceCost(0.5f);
 
-  auto pg = dynamic_cast<const ProbabilityGrid&>(grid);
+  // auto pg = dynamic_cast<const ProbabilityGrid&>(grid);
 
   const auto limits = grid.limits();
   for (int y = 0; y < limits.cell_limits().num_y_cells; ++y) {

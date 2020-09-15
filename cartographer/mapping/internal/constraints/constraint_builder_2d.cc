@@ -175,8 +175,8 @@ ConstraintBuilder2D::ComputeConstraint(
     cartographer::mapping::scan_matching::ICPScanMatcher2D::Result icp_match;
     icp_match.summary.final_cost = std::numeric_limits<double>::max();
     double best_score = 0;
-    for (int i = -2; i <= 2; ++i) {
-      const double angle_diff = 0.2 * i;
+    for (int i = -1; i <= 1; ++i) {
+      const double angle_diff = 0.0245 * i;
       const transform::Rigid2d estimate(
           cluster_estimate.translation(),
           cluster_estimate.rotation().smallestAngle() + angle_diff);
@@ -208,22 +208,31 @@ ConstraintBuilder2D::ComputeConstraint(
     const bool icp_points_inlier_good =
         icp_match.points_inlier_fraction >=
         options_.min_icp_points_inlier_fraction();
-    const bool icp_features_inlier_good =
-        icp_match.features_inlier_fraction >=
-        options_.min_icp_features_inlier_fraction();
 
-    // More features mean we need less actual points to match
+    const double features_match_fraction = !constant_data.circle_features.empty() ?
+                                                static_cast<double>(icp_match.features_match_count) /
+                                                static_cast<double>(constant_data.circle_features.size())
+                                                : 1.0;
+
+    const bool icp_features_match_good = features_match_fraction >= options_.min_icp_features_match_fraction();
+
+    // More features means we need less actual points to match
     const double require_hit = std::max(
-        0.15, options_.min_hit_fraction() - 0.01 * icp_match.features_count -
-                  0.4 * std::max(0.0, statistics.ray_trace_fraction - 0.85));
+        0.25, options_.min_hit_fraction() -
+        0.025 * (icp_match.features_match_count >= 3 ? icp_match.features_match_count : 0));
+
+    // If we have 3 or more features, we can start to relax the raytrace and hit criteria a little.
+    const double require_rt = std::max(
+        0.60, options_.min_ray_trace_fraction() -
+        0.025 * (icp_match.features_match_count >= 3 ? icp_match.features_match_count : 0));
 
     const bool hit_good = statistics.hit_fraction >= require_hit;
 
     const bool rt_good =
-        statistics.ray_trace_fraction >= options_.min_ray_trace_fraction();
+        statistics.ray_trace_fraction >= require_rt;
 
     const bool match_successful = icp_good && icp_points_inlier_good &&
-                                  icp_features_inlier_good && hit_good &&
+                                  icp_features_match_good && hit_good &&
                                   rt_good;
 
     const float overall_score =
@@ -236,12 +245,12 @@ ConstraintBuilder2D::ComputeConstraint(
               << constant_data.filtered_point_cloud.size()
               << ")=" << icp_match.points_inlier_fraction << "("
               << icp_points_inlier_good << ")"
-              << " f: (" << icp_match.features_count << "/"
+              << " f: (" << icp_match.features_match_count << "/"
               << constant_data.circle_features.size()
-              << ")=" << icp_match.features_inlier_fraction << "("
-              << icp_features_inlier_good << ")"
-              << " rt: " << statistics.ray_trace_fraction << "(" << rt_good
-              << ")"
+              << ")=" << features_match_fraction << "("
+              << icp_features_match_good << ")"
+              << " rt: " << statistics.ray_trace_fraction << " > " << require_rt
+              << "(" << rt_good << ")"
               << " hit: " << statistics.hit_fraction << " > " << require_hit
               << " (" << hit_good << ")";
 
@@ -263,14 +272,13 @@ ConstraintBuilder2D::ComputeConstraint(
   //
   // Debug visualisation
   //
+  const auto grid = dynamic_cast<const mapping::ProbabilityGrid*>(submap_scan_matcher.submap.grid());
+  if (grid)
   {
     const std::string prefix = "cartographer_debug/match_t" +
                                std::to_string(submap_id.trajectory_id) + "_n" +
                                std::to_string(node_id.node_index) + "_s" +
                                std::to_string(submap_id.submap_index) + "_";
-
-    const auto grid = dynamic_cast<const mapping::ProbabilityGrid*>(
-        submap_scan_matcher.submap.grid());
 
     auto surface = grid->DrawSurface();
 
@@ -390,7 +398,7 @@ ConstraintBuilder2D::ComputeConstraint(
                                proposals_clusters_opt_fname.c_str());
 
     // Visualise the best match
-    if (best_match && best_match->success) {
+    if (best_match){
       if (best_match->success)
         cairo_set_source_rgba(cr, 0.5, 1.0, 0, 1);
       else

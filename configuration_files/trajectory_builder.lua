@@ -10,8 +10,6 @@ TRAJECTORY_BUILDER = {
             detect_radii = {0.06}
         },
 
-        num_accumulated_range_data = 1,
-
         -- used before scan matching
         voxel_filter_size = 0.01,
 

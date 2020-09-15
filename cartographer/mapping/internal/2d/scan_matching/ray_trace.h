@@ -18,7 +18,7 @@ struct Point {
 
 inline int sign(int x) { return x > 0 ? 1.0 : -1.0; }
 
-inline Point bresenham2D(const ProbabilityGrid& grid, unsigned int abs_da,
+inline Point bresenham2D(const Grid2D& grid, unsigned int abs_da,
                          unsigned int abs_db, int error_b, int offset_a,
                          int offset_b, unsigned int offset,
                          const unsigned int size_x, unsigned int max_length) {
@@ -45,7 +45,7 @@ inline Point bresenham2D(const ProbabilityGrid& grid, unsigned int abs_da,
   return {-1, -1};
 }
 
-inline Point raytraceLine(const ProbabilityGrid& grid, const unsigned int x0,
+inline Point raytraceLine(const Grid2D& grid, const unsigned int x0,
                           const unsigned int y0, const unsigned int x1,
                           const unsigned int y1, const unsigned int size_x,
                           const unsigned int max_length = UINT_MAX) {

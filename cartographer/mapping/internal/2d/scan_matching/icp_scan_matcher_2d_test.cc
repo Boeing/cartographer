@@ -171,6 +171,9 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
   icp_config.set_feature_weight(2.0);
   icp_config.set_point_inlier_threshold(1.0);
   icp_config.set_feature_inlier_threshold(1.0);
+  icp_config.set_raytrace_threshold(0.3);
+  icp_config.set_hit_threshold(0.3);
+  icp_config.set_feature_match_threshold(0.2);
 
   Eigen::Vector2f origin = {0.f, 0.f};
 

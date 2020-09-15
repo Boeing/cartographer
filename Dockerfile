@@ -25,7 +25,7 @@ RUN cd /root \
     && ninja \
     && ninja install
 
-RUN curl https://git.web.boeing.com/brta-robotics/ros/modular_cartographer/-/raw/master/cartographer_ros/dependencies/abseil-cpp-7b46e1d31a6b08b1c6da2a13e7b151a20446fa07.tar.gz --insecure -o /root/abseil-cpp.tar.gz
+RUN curl -L https://git.web.boeing.com/brta-robotics/ros/modular_cartographer/-/raw/master/cartographer_ros/dependencies/abseil-cpp-7b46e1d31a6b08b1c6da2a13e7b151a20446fa07.tar.gz --insecure -o /root/abseil-cpp.tar.gz
 
 # Copy project source
 COPY cartographer /root/cartographer/cartographer

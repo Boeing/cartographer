@@ -1,15 +1,12 @@
 MAP_BUILDER = {
-    num_background_threads = 1,
     pose_graph = {
-        optimize_every_n_nodes = 1,
         constraint_builder = {
             min_local_search_score = 0.40,
-            min_global_search_score = 0.45,
+            min_global_search_score = 0.30,
 
             -- used when adding INTER submap constraints
             constraint_translation_weight = 2,
             constraint_rotation_weight = 2,
-            log_matches = true,
             ceres_scan_matcher = {
                 occupied_space_weight = 1,
                 translation_weight = 1,
@@ -21,31 +18,32 @@ MAP_BUILDER = {
                 },
             },
             global_icp_scan_matcher_options_2d = {
-                num_global_samples = 400,
-                num_global_rotations = 32,
+                num_global_samples_per_sq_m = 3,
+                num_global_rotations = 128,
 
-                proposal_point_inlier_threshold = 0.8,
-                proposal_feature_inlier_threshold = 0.8,
+                proposal_point_inlier_threshold = 1.0,
+                proposal_feature_inlier_threshold = 1.0,
 
-                proposal_min_points_inlier_fraction = 0.2,
+                proposal_min_points_inlier_fraction = 0.4,
                 proposal_min_features_inlier_fraction = 0.5,
 
-                proposal_features_weight = 1.0,
+                proposal_features_weight = 2.0,
                 proposal_points_weight = 1.0,
 
-                proposal_raytracing_max_error = 1.0,
+                proposal_raytracing_max_error = 0.4,
 
-                proposal_max_points_error = 0.8,
-                proposal_max_features_error = 0.8,
-                proposal_max_error = 0.8,
+                proposal_max_points_error = 0.5,
+                proposal_max_features_error = 1.2,
+                proposal_max_error = 0.5,
 
                 min_cluster_size = 1,
-                min_cluster_distance = 1.0,
+                max_cluster_size = 4,
+                min_cluster_distance = 0.4,
 
-                num_local_samples = 40,
+                num_local_samples = 8,
 
                 local_sample_linear_distance = 0.2,
-                local_sample_angular_distance = 0.2,
+                local_sample_angular_distance = 0.1,
 
                 icp_options = {
                     nearest_neighbour_point_huber_loss = 0.01,
@@ -55,16 +53,23 @@ MAP_BUILDER = {
                     point_pair_feature_huber_loss = 0.01,
 
                     point_weight = 1.0,
-                    feature_weight = 10.0,
+                    feature_weight = 0.5,
 
-                    point_inlier_threshold = 0.4,
-                    feature_inlier_threshold = 0.4,
+                    point_inlier_threshold = 1.0,
+                    feature_inlier_threshold = 1.0,
+
+                    -- Used for evaluating match
+                    raytrace_threshold = 0.3;
+                    hit_threshold = 0.3;
+                    feature_match_threshold = 0.2,
                 }
             },
-            min_icp_score = 0.98,
-            min_icp_points_inlier_fraction = 0.3,
+            min_icp_score = 0.97,
+            min_icp_points_inlier_fraction = 0.5,
             min_icp_features_inlier_fraction = 0.5,
-            min_hit_fraction = 0.50,
+            min_hit_fraction = 0.5,
+            min_ray_trace_fraction = 0.85,
+            min_icp_features_match_fraction = 0.6,
         },
 
         -- used when adding INTRA submap constraints
@@ -78,10 +83,6 @@ MAP_BUILDER = {
             local_slam_pose_translation_weight = 0,
             local_slam_pose_rotation_weight = 0,
 
-            -- these are between nodes based on odom topic
-            odometry_translation_weight = 0,
-            odometry_rotation_weight = 0,
-
             fixed_frame_pose_translation_weight = 1e1, -- only in 3d
             fixed_frame_pose_rotation_weight = 1e2, -- only in 3d
 
@@ -93,8 +94,6 @@ MAP_BUILDER = {
             },
         },
         max_num_final_iterations = 200,
-        log_residual_histograms = true,
-        global_constraint_search_after_n_seconds = 10000.,
 
         --  overlapping_submaps_trimmer_2d = {
         --    fresh_submaps_count = 1,
@@ -102,19 +101,16 @@ MAP_BUILDER = {
         --    min_added_submaps_count = 5,
         --  },
 
-        -- global search is EXPENSIVE (~1-2seconds)
-
         -- keep searching globally until this many found in total
-        min_globally_searched_constraints_for_trajectory = 4,
+        min_globally_searched_constraints_for_trajectory = 1,
 
         -- keep searching locally until this many inside submap
-        min_local_constraints_for_submap = 3,
+        local_constraint_every_n_nodes = 8,
 
         -- keep searching globally until this many inside submap
-        min_global_constraints_for_submap = 1,
+        global_constraint_every_n_nodes = 8,
 
         max_constraint_match_distance = 9.0,
-        max_work_queue_size = 10,
     },
     collate_by_trajectory = false,
 }

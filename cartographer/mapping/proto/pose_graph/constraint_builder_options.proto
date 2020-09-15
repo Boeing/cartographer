@@ -45,4 +45,5 @@ message ConstraintBuilderOptions {
   // Minimum scan agreement required for a successful scan match
   double min_hit_fraction = 11;
   double min_ray_trace_fraction = 12;
+  double min_icp_features_match_fraction = 13;
 }

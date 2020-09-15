@@ -355,8 +355,7 @@ GlobalICPScanMatcher2D::EvaluationResult GlobalICPScanMatcher2D::evaluateSample(
           const transform::Rigid2d src_pt({sample_pose.x, sample_pose.y}, 0);
           const transform::Rigid2d tgt_pt({query_pt[0], query_pt[1]}, 0);
 
-          auto pg =
-              dynamic_cast<const mapping::ProbabilityGrid*>(submap().grid());
+          auto pg = submap().grid();
 
           const auto mp_start =
               pg->limits().GetCellIndex(src_pt.translation().cast<float>());
