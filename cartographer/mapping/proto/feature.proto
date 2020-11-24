@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+import "cartographer/transform/proto/transform.proto";
+
+package cartographer.mapping.proto;
+
+message Keypoint {
+  transform.proto.Vector3f position = 1;
+  transform.proto.Vector3f covariance = 2;
+}
+
+message CircleDescriptor {
+  float score = 1;
+  float radius = 2;
+}
+
+message CircleFeature {
+  Keypoint keypoint = 1;
+  CircleDescriptor fdescriptor = 2;
+}
