@@ -175,8 +175,8 @@ ConstraintBuilder2D::ComputeConstraint(
     cartographer::mapping::scan_matching::ICPScanMatcher2D::Result icp_match;
     icp_match.summary.final_cost = std::numeric_limits<double>::max();
     double best_score = 0;
-    for (int i = -1; i <= 1; ++i) {
-      const double angle_diff = 0.0245 * i;
+    for (int i = -2; i <= 2; ++i) {
+      const double angle_diff = 0.05 * i;
       const transform::Rigid2d estimate(
           cluster_estimate.translation(),
           cluster_estimate.rotation().smallestAngle() + angle_diff);
@@ -186,12 +186,9 @@ ConstraintBuilder2D::ComputeConstraint(
               estimate, constant_data.filtered_point_cloud,
               constant_data.circle_features);
       const double score =
-          calculateICPscore(this_icp_match.summary.final_cost) *
-          this_icp_match.points_inlier_fraction;
-      //        LOG(INFO) << "i: " << i << " icp: " <<
-      //        calculateICPscore(this_icp_match.summary.final_cost) << "
-      //        p_inlier: " << this_icp_match.points_inlier_fraction << " score:
-      //        " << score;
+          calculateICPscore(this_icp_match.summary.final_cost);
+            //  LOG(INFO) << "i: " << i << " icp: " <<
+            //  calculateICPscore(this_icp_match.summary.final_cost) << "p_inlier: " << this_icp_match.points_inlier_fraction << " score: " << score;
       if (score > best_score) {
         best_score = score;
         icp_match = this_icp_match;

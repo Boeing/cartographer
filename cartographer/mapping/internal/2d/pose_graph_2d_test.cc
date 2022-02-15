@@ -109,6 +109,7 @@ class PoseGraph2DTest : public ::testing::Test {
                 global_icp_scan_matcher_options_2d = {
                     num_global_samples_per_sq_m = 3,
                     num_global_rotations = 128,
+                    min_features_required = 0,
 
                     proposal_point_inlier_threshold = 1.0,
                     proposal_feature_inlier_threshold = 1.0,
@@ -199,7 +200,6 @@ class PoseGraph2DTest : public ::testing::Test {
             -- keep searching globally until this many inside submap
             global_constraint_every_n_nodes = 8,
 
-            max_constraint_match_distance = 9.0,
           })text");
       auto options = CreatePoseGraphOptions(parameter_dictionary.get());
       pose_graph_ = absl::make_unique<PoseGraph2D>(options);

@@ -25,6 +25,8 @@ proto::GlobalICPScanMatcherOptions2D CreateGlobalICPScanMatcherOptions2D(
       parameter_dictionary->GetInt("num_global_samples_per_sq_m"));
   options.set_num_global_rotations(
       parameter_dictionary->GetInt("num_global_rotations"));
+  options.set_min_features_required(
+      parameter_dictionary->GetInt("min_features_required"));
 
   options.set_proposal_point_inlier_threshold(
       parameter_dictionary->GetDouble("proposal_point_inlier_threshold"));
@@ -127,6 +129,7 @@ GlobalICPScanMatcher2D::GlobalICPScanMatcher2D(
       icp_solver_(submap, options_.icp_options()) {
   CHECK(options_.num_global_samples_per_sq_m() > 0);
   CHECK(options_.num_global_rotations() > 0);
+  CHECK(options_.min_features_required() >= 0);
 
   CHECK(options_.proposal_point_inlier_threshold() > 0);
   CHECK(options_.proposal_feature_inlier_threshold() > 0);
@@ -197,6 +200,28 @@ GlobalICPScanMatcher2D::Result GlobalICPScanMatcher2D::Match(
   Result result;
 
   if (sampler_.size() == 0) return result;
+
+  if (static_cast<int>(features.size()) < options_.min_features_required()) 
+  {
+    LOG(INFO) << "Insufficient features: " << features.size() << " < " << options_.min_features_required();
+    return result;
+  }
+
+  // Check if there are sufficient features in the submap for a good match. If not, don't bother trying.
+  // Feature filtering only kicks in when 2 or more features are detected
+  if (static_cast<int>(features.size()) >= 2) 
+  {
+    // Assume all features in the submap match detected features, what is the maximum possible ratio
+    const double max_ratio = static_cast<double>(submap().CircleFeatures().size()) / 
+                             static_cast<double>(features.size());
+
+    if (max_ratio < options_.proposal_min_features_inlier_fraction())
+    {
+      LOG(INFO) << "Insufficient features in submap for a successful match, features detected: " << features.size()
+                << ", features in submap: " << submap().CircleFeatures().size();
+      return result;
+    }
+  }
 
   const std::vector<RotatedScan> rotated_scans = GenerateRotatedScans(
       point_cloud, static_cast<size_t>(options_.num_global_rotations()));

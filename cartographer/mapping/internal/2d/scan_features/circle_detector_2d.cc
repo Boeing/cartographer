@@ -275,7 +275,18 @@ std::vector<Circle<float>> DBScan(
 }  // namespace
 
 std::vector<Circle<float>> DetectReflectivePoles(
-    const sensor::PointCloud& point_cloud, const float radius) {
+    const sensor::PointCloud& point_cloud, const float radius, const int min_reflective_points_far,
+    const int min_reflective_points_near, const float max_detection_distance) {
+
+  CHECK(min_reflective_points_near > 0);
+  CHECK(min_reflective_points_far > 0);
+  CHECK(max_detection_distance >= 0.0);
+  CHECK(min_reflective_points_near >= min_reflective_points_far);
+
+  // This is the factor to apply to calculate how many high reflective points are required depending on how far you are
+  // points required = min_reflective_points_far - (range_factor * distance)
+  const float range_factor = max_detection_distance / (min_reflective_points_near - min_reflective_points_far);
+
   // Assume the point cloud is centered about the sensor origin
 
   // Sort the point cloud data radially for quick neigbour searching
@@ -285,7 +296,7 @@ std::vector<Circle<float>> DetectReflectivePoles(
 
   std::vector<DetectCircle<float>> detections;
 
-  const float excl_radius = radius * 1.6f;
+  const float excl_radius = radius * 1.2f;
 
   for (size_t i = 0; i < sorted_range_data.size(); ++i) {
     // assess every point
@@ -298,16 +309,18 @@ std::vector<Circle<float>> DetectReflectivePoles(
     const Eigen::Vector2f dir = range;
     const Eigen::Vector2f dir_norm = dir.normalized();
 
+    // skip points which are too far
+    if (range.norm() > max_detection_distance) continue;
+
     // position hypothesis
     const Eigen::Vector2f position = range + dir_norm * radius;
 
     // Vary circle detection criteria by distance - close circle require more
     // confidence
-    const float max_error = radius * (0.1f + 0.1f * range.norm());
-    const int required_inlier_points =
-        std::max(1, 4 - static_cast<int>(0.5f * range.norm()));
+    const float max_error = radius * (0.2f + 0.01f * range.norm());
     const int required_intense_points =
-        std::max(1, 4 - static_cast<int>(0.5f * range.norm()));
+        std::max(min_reflective_points_far, min_reflective_points_near - static_cast<int>(range_factor * range.norm()));
+    const int required_inlier_points = static_cast<int>(required_intense_points * 1.5f);
 
     float mse = 0.f;
     int count = 1;

@@ -1,11 +1,10 @@
 #ifndef CARTOGRAPHER_MAPPING_INTERNAL_2D_SCAN_MATCHING_NN_COST_FUNCTION_2D_H_
 #define CARTOGRAPHER_MAPPING_INTERNAL_2D_SCAN_MATCHING_NN_COST_FUNCTION_2D_H_
 
+#include "cartographer/common/nanoflann.h"
 #include "cartographer/mapping/2d/grid_2d.h"
 #include "cartographer/sensor/point_cloud.h"
 #include "ceres/ceres.h"
-
-#include "cartographer/common/nanoflann.h"
 
 namespace cartographer {
 namespace mapping {

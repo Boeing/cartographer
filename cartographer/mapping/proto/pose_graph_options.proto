@@ -50,6 +50,4 @@ message PoseGraphOptions {
   int32 local_constraint_every_n_nodes = 8;
   int32 global_constraint_every_n_nodes = 9;
 
-  // Search for constraints if submap within this distance
-  double max_constraint_match_distance = 10;
 }

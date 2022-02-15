@@ -133,6 +133,7 @@ TEST(GlobalICPScanMatcherTest, FullSubmapMatching) {
   proto::GlobalICPScanMatcherOptions2D global_icp_config;
   global_icp_config.set_num_global_samples_per_sq_m(4);
   global_icp_config.set_num_global_rotations(128);
+  global_icp_config.set_min_features_required(0);
 
   global_icp_config.set_proposal_point_inlier_threshold(1.5);
   global_icp_config.set_proposal_feature_inlier_threshold(1.5);

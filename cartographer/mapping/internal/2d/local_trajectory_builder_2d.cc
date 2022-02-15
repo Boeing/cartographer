@@ -127,7 +127,7 @@ LocalTrajectoryBuilder2D::AddRangeData(
 
   const sensor::RangeData& range_data_wrt_tracking = voxel_filtered;
 
-  CHECK(!range_data_wrt_tracking.returns.empty());
+  if (range_data_wrt_tracking.returns.empty()) return nullptr;
 
   const transform::Rigid2d pose_prediction_2d =
       transform::Project2D(pose_prediction.pose);
@@ -200,7 +200,10 @@ LocalTrajectoryBuilder2D::AddRangeData(
   for (const auto radius : options_.circle_feature_options().detect_radii()) {
     // LOG(INFO) << "Searching for circles of radius: " << radius;
     const auto pole_features =
-        DetectReflectivePoles(range_data_wrt_tracking.returns, radius);
+        DetectReflectivePoles(range_data_wrt_tracking.returns, radius,
+          options_.circle_feature_options().min_reflective_points_far(),
+          options_.circle_feature_options().min_reflective_points_near(),
+          options_.circle_feature_options().max_detection_distance());
     for (const auto& f : pole_features) {
       const auto p = f;
       const float xy_covariance = p.mse * p.position.norm();

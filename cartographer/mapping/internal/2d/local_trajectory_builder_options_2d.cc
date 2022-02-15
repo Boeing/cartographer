@@ -32,6 +32,10 @@ proto::CircleFeatureOptions CreateCircleFeatureOptions(
                         ->GetArrayValuesAsDoubles();
   options.mutable_detect_radii()->Reserve(ref.size());
   for (const auto& d : ref) options.add_detect_radii(d);
+
+  options.set_min_reflective_points_far(parameter_dictionary->GetDouble("min_reflective_points_far"));
+  options.set_min_reflective_points_near(parameter_dictionary->GetDouble("min_reflective_points_near"));
+  options.set_max_detection_distance(parameter_dictionary->GetDouble("max_detection_distance"));
   return options;
 }
 

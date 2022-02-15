@@ -143,8 +143,11 @@ TEST(ICPScanMatcherTest, FullSubmapMatching) {
   }
 
   // find circle features in the scan
-  const auto poles =
-      DetectReflectivePoles(unperturbed_point_cloud, pole_radius);
+  // std::vector<Circle<float>> DetectReflectivePoles(
+  //   const sensor::PointCloud& point_cloud, const float radius,
+  //   const int min_reflective_points_far, const int min_reflective_points_near,
+  //   const float max_detection_distance);
+  const auto poles = DetectReflectivePoles(unperturbed_point_cloud, pole_radius, 2, 8, 10.0f);
   std::vector<CircleFeature> scan_circle_features;
   for (const auto& c : poles) {
     const auto p = FitCircle(c);

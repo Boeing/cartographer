@@ -117,9 +117,6 @@ proto::PoseGraphOptions CreatePoseGraphOptions(
   options.set_global_constraint_every_n_nodes(
       parameter_dictionary->GetInt("global_constraint_every_n_nodes"));
 
-  options.set_max_constraint_match_distance(
-      parameter_dictionary->GetDouble("max_constraint_match_distance"));
-
   return options;
 }
 
