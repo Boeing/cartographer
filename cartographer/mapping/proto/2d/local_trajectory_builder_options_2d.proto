@@ -24,6 +24,9 @@ import "cartographer/mapping/proto/scan_matching/real_time_correlative_scan_matc
 
 message CircleFeatureOptions {
   repeated float detect_radii = 1;
+  float min_reflective_points_far = 2;
+  float min_reflective_points_near = 3;
+  float max_detection_distance = 4;
 }
 
 message LocalTrajectoryBuilderOptions2D {

@@ -21,30 +21,31 @@ import "cartographer/mapping/proto/scan_matching/icp_scan_matcher_options_2d.pro
 message GlobalICPScanMatcherOptions2D {
   int32 num_global_samples_per_sq_m = 1;
   int32 num_global_rotations = 2;
+  int32 min_features_required = 3;
 
-  double proposal_point_inlier_threshold = 3;
-  double proposal_feature_inlier_threshold = 4;
+  double proposal_point_inlier_threshold = 4;
+  double proposal_feature_inlier_threshold = 5;
 
-  double proposal_min_points_inlier_fraction = 5;
-  double proposal_min_features_inlier_fraction = 6;
+  double proposal_min_points_inlier_fraction = 6;
+  double proposal_min_features_inlier_fraction = 7;
 
-  double proposal_features_weight = 7;
-  double proposal_points_weight = 8;
+  double proposal_features_weight = 8;
+  double proposal_points_weight = 9;
 
-  double proposal_raytracing_max_error = 9;
+  double proposal_raytracing_max_error = 10;
 
-  double proposal_max_points_error = 10;
-  double proposal_max_features_error = 11;
-  double proposal_max_error = 12;
+  double proposal_max_points_error = 11;
+  double proposal_max_features_error = 12;
+  double proposal_max_error = 13;
 
-  int32 min_cluster_size = 13;
-  int32 max_cluster_size = 14;
-  double min_cluster_distance = 15;
+  int32 min_cluster_size = 14;
+  int32 max_cluster_size = 15;
+  double min_cluster_distance = 16;
 
-  int32 num_local_samples = 16;
+  int32 num_local_samples = 17;
 
-  double local_sample_linear_distance = 17;
-  double local_sample_angular_distance = 18;
+  double local_sample_linear_distance = 18;
+  double local_sample_angular_distance = 19;
   
-  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 19;
+  mapping.scan_matching.proto.ICPScanMatcherOptions2D icp_options = 20;
 }

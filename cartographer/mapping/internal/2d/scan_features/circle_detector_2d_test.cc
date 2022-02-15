@@ -1188,7 +1188,7 @@ TEST(CirclDetector, real_data) {
       unperturbed_point_cloud, transform::Embed3D(inserted_pose.cast<float>()));
 
   const std::vector<Circle<float>> circles =
-      DetectReflectivePoles(unperturbed_point_cloud, 0.060f);
+      DetectReflectivePoles(unperturbed_point_cloud, 0.060f, 2, 8, 10.0f);
 
   auto surface = probability_grid.DrawSurface();
   cairo_t* cr = cairo_create(surface.get());

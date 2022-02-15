@@ -341,9 +341,23 @@ std::vector<PoseGraphInterface::Constraint> PoseGraph2D::FindNewConstraints() {
                   data_.global_submap_poses_2d.at(submap_itr->id)
                       .global_pose.inverse() *
                   transform::Project2D(node_it->data.global_pose);
-              const bool nearby = initial_relative_pose.translation().norm() <
-                                  options_.max_constraint_match_distance();
-              if (nearby) {
+              
+              const double resolution = static_cast<const Submap2D*>(data_.submap_data.at(submap_itr->id)
+                                   .submap.get())->grid()->limits().resolution();
+              
+              // The grid is row-major and poorly named. num_x_cells actually refers to the number of rows (y)
+                // and num_y_cells is the number of columns (x)
+              const double submap_size_x = static_cast<const Submap2D*>(data_.submap_data.at(submap_itr->id)
+                                   .submap.get())->grid()->limits().cell_limits().num_y_cells * resolution;
+              const double submap_size_y = static_cast<const Submap2D*>(data_.submap_data.at(submap_itr->id)
+                                  .submap.get())->grid()->limits().cell_limits().num_x_cells * resolution;
+
+              const bool in_submap = std::abs(initial_relative_pose.translation().x()) <
+                                     submap_size_x / 2.0 &&
+                                     std::abs(initial_relative_pose.translation().y()) <
+                                     submap_size_y / 2.0;
+
+              if (in_submap) {
                 LOG(INFO)
                     << "Search (locally) for local constraint between Node: "
                     << node_id << " and Submap: " << submap_itr->id
@@ -382,9 +396,29 @@ std::vector<PoseGraphInterface::Constraint> PoseGraph2D::FindNewConstraints() {
                     data_.global_submap_poses_2d.at(submap_itr->id)
                         .global_pose.inverse() *
                     transform::Project2D(node_it->data.global_pose);
-                const bool nearby = initial_relative_pose.translation().norm() <
-                                    options_.max_constraint_match_distance();
-                if (nearby) {
+
+                const double resolution = static_cast<const Submap2D*>(data_.submap_data.at(submap_itr->id)
+                                   .submap.get())->grid()->limits().resolution();
+                
+                // The grid is row-major and poorly named. num_x_cells actually refers to the number of rows (y)
+                // and num_y_cells is the number of columns (x)
+                const double submap_size_x = static_cast<const Submap2D*>(data_.submap_data.at(submap_itr->id)
+                                    .submap.get())->grid()->limits().cell_limits().num_y_cells * resolution;
+                const double submap_size_y = static_cast<const Submap2D*>(data_.submap_data.at(submap_itr->id)
+                                    .submap.get())->grid()->limits().cell_limits().num_x_cells * resolution;
+
+                const bool in_submap = std::abs(initial_relative_pose.translation().x()) <
+                                       submap_size_x / 2.0 &&
+                                       std::abs(initial_relative_pose.translation().y()) <
+                                       submap_size_y / 2.0;
+                
+                LOG(INFO)
+                      << "Distance to submap x: " << initial_relative_pose.translation().x() 
+                      << " Distance to submap y: " << initial_relative_pose.translation().y()
+                      << " Submap size x: " << submap_size_x
+                      << " Submap size y: " << submap_size_y;
+
+                if (in_submap) {
                   LOG(INFO)
                       << "Search (locally) for global constraint between Node: "
                       << node_id << " and Submap: " << submap_itr->id

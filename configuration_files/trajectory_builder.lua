@@ -7,7 +7,10 @@ TRAJECTORY_BUILDER = {
         missing_data_ray_length = 12.,
 
         circle_feature_options = {
-            detect_radii = {0.06}
+            detect_radii = {0.06},
+            min_reflective_points_far = 2,
+            min_reflective_points_near = 8,
+            max_detection_distance = 10.0
         },
 
         -- used before scan matching

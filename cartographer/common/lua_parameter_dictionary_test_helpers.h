@@ -39,10 +39,12 @@ class DummyFileResolver : public FileResolver {
 
   std::string GetFileContentOrDie(const std::string& unused_basename) override {
     LOG(FATAL) << "Not implemented";
+    return "Not implemented";
   }
 
   std::string GetFullPathOrDie(const std::string& unused_basename) override {
     LOG(FATAL) << "Not implemented";
+    return "Not implemented";
   }
 };
 

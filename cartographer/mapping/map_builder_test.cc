@@ -64,6 +64,7 @@ class MapBuilderTestBase : public T {
                 global_icp_scan_matcher_options_2d = {
                     num_global_samples_per_sq_m = 3,
                     num_global_rotations = 128,
+                    min_features_required = 0,
 
                     proposal_point_inlier_threshold = 1.0,
                     proposal_feature_inlier_threshold = 1.0,
@@ -154,7 +155,6 @@ class MapBuilderTestBase : public T {
             -- keep searching globally until this many inside submap
             global_constraint_every_n_nodes = 8,
 
-            max_constraint_match_distance = 9.0,
             },
             collate_by_trajectory = false,
        })text";
@@ -172,7 +172,10 @@ class MapBuilderTestBase : public T {
                 missing_data_ray_length = 12.,
 
                 circle_feature_options = {
-                    detect_radii = {0.06}
+                    detect_radii = {0.06},
+                    min_reflective_points_far = 2,
+                    min_reflective_points_near = 8,
+                    max_detection_distance = 10.0
                 },
 
                 -- used before scan matching
