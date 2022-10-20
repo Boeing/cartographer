@@ -77,7 +77,7 @@ if(NOT TARGET standalone_absl)
      BUILD_BYPRODUCTS "${ABSEIL_LIBRARY_PATH};${ABSEIL_LIBRARIES}"
    )
   else()
-    message(FATAL_ERROR "Either (ABSEIL_LIBRARIES and ABSEIL_INCLUDE_PATHS) or ABSEIL_TAR_PATH must be provided." )
+    message(FATAL_ERROR "Either (ABSEIL_LIBRARIES and ABSEIL_INCLUDE_DIRS) or ABSEIL_TAR_PATH must be provided." )
   endif()
   
   add_library(standalone_absl STATIC IMPORTED GLOBAL)
