@@ -1,8 +1,8 @@
 FROM sres.web.boeing.com:5000/ubuntu:bionic
 
 RUN set -ex \
-    && apt-get update \
-    && apt-get install -y \
+    && apt-get update -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends \
         git \
         curl \
         ninja-build \
@@ -39,4 +39,3 @@ RUN cd /root/cartographer \
     && cd build \
     && cmake .. -DABSEIL_TAR_PATH=/root/abseil-cpp.tar.gz -DCMAKE_PREFIX_PATH=/root/protobuf/build/install -DCMAKE_INSTALL_PREFIX=install -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTS:BOOL=On \
     && make -j4
-
