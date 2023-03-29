@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.8)
 
 project(cartographer)
 
 
-# Default to C++14
-set(CMAKE_CXX_STANDARD 14)
+# Default to C++17
+set(CMAKE_CXX_STANDARD 17)
 
 set(CARTOGRAPHER_MAJOR_VERSION 1)
 set(CARTOGRAPHER_MINOR_VERSION 0)
